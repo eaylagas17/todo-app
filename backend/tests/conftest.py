@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.db import Base, get_session
 from app.main import app
+from tests.helpers import bearer, register
 
 
 @pytest.fixture
@@ -36,3 +37,13 @@ def client(db):
     app.dependency_overrides[get_session] = lambda: db
     yield TestClient(app)
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def ada(client) -> dict[str, str]:
+    return bearer(register(client)["token"])
+
+
+@pytest.fixture
+def grace(client) -> dict[str, str]:
+    return bearer(register(client, "grace@example.com")["token"])
