@@ -51,7 +51,7 @@ export function SortableTaskList({ tasks }: { tasks: Task[] }) {
               ? `${name(active.id)} is over ${name(over.id)}.`
               : undefined,
           onDragEnd: ({ active, over }) =>
-            over
+            over && over.id !== active.id
               ? `${name(active.id)} was moved.`
               : `Moving ${name(active.id)} was cancelled.`,
           onDragCancel: ({ active }) =>
