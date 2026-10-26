@@ -1,3 +1,4 @@
+import { onlineManager } from "@tanstack/react-query";
 import { screen } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
@@ -71,6 +72,15 @@ it("shows the server's message for a taken email", async () => {
 });
 
 it("shows the network message when the server is unreachable", async () => {
+  server.use(http.post("/api/sessions", () => HttpResponse.error()));
+  const { user } = renderApp("/login");
+  await fillIn(user);
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent(NETWORK_MESSAGE);
+});
+
+it("shows the network message when the browser is offline", async () => {
+  onlineManager.setOnline(false);
   server.use(http.post("/api/sessions", () => HttpResponse.error()));
   const { user } = renderApp("/login");
   await fillIn(user);
