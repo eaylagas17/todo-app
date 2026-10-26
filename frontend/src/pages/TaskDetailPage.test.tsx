@@ -1,7 +1,8 @@
 import { screen, waitFor } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
-import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
+import { db, requests, seedTasks, seedUser, server } from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -79,6 +80,28 @@ it("shows not found for a task that doesn't exist", async () => {
   ).toBeInTheDocument();
   expect(
     screen.getByRole("link", { name: "Back to my tasks" }),
+  ).toBeInTheDocument();
+});
+
+it("shows not found for a malformed task id", async () => {
+  // The real API answers 400 for an id that isn't a UUID (E12); the fake ids aren't UUIDs.
+  server.use(
+    http.get("/api/tasks/not-a-uuid", () =>
+      HttpResponse.json(
+        {
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Task id must be a valid id",
+            fields: { task_id: "Task id must be a valid id" },
+          },
+        },
+        { status: 400 },
+      ),
+    ),
+  );
+  renderApp("/tasks/not-a-uuid", { as: ada });
+  expect(
+    await screen.findByRole("heading", { name: "Task not found" }),
   ).toBeInTheDocument();
 });
 
