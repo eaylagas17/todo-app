@@ -34,16 +34,16 @@ export function TaskDetailPage() {
   const { id = "" } = useParams();
   const task = useTask(id);
   if (isNotFound(task.error) || isBadId(task.error)) return <NotFound />;
-  if (task.isPending) {
-    return (
-      <main className="container">
-        <p role="status" aria-busy="true">
-          Loading the task…
-        </p>
-      </main>
-    );
-  }
-  if (task.isError) {
+  if (task.data === undefined) {
+    if (!task.isError) {
+      return (
+        <main className="container">
+          <p role="status" aria-busy="true">
+            Loading the task…
+          </p>
+        </main>
+      );
+    }
     return (
       <main className="container">
         <p role="alert">{task.error.message}</p>
@@ -54,10 +54,23 @@ export function TaskDetailPage() {
     );
   }
   // Keyed by id: opening another task starts a fresh form instead of keeping this one's draft.
-  return <TaskForm key={task.data.id} task={task.data} />;
+  // A failed refresh keeps the form, and the draft in it, on screen.
+  return (
+    <TaskForm
+      key={task.data.id}
+      task={task.data}
+      refreshError={task.isError ? task.error : null}
+    />
+  );
 }
 
-function TaskForm({ task }: { task: Task }) {
+function TaskForm({
+  task,
+  refreshError,
+}: {
+  task: Task;
+  refreshError: Error | null;
+}) {
   const [description, setDescription] = useState(task.description);
   const update = useUpdateTask();
   const toggle = useToggleTask();
@@ -69,6 +82,7 @@ function TaskForm({ task }: { task: Task }) {
   const completed = toggle.isPending
     ? toggle.variables.completed
     : task.completed;
+  const error = update.error ?? toggle.error ?? refreshError;
 
   if (isNotFound(update.error) || isNotFound(toggle.error)) return <NotFound />;
 
@@ -110,9 +124,7 @@ function TaskForm({ task }: { task: Task }) {
           />
           Done
         </label>
-        {(update.error ?? toggle.error) && (
-          <p role="alert">{(update.error ?? toggle.error)?.message}</p>
-        )}
+        {error && <p role="alert">{error.message}</p>}
         <button
           type="submit"
           disabled={!changed || !trimmed || update.isPending}

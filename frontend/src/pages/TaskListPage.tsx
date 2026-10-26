@@ -46,6 +46,7 @@ export function TaskListPage() {
         onChange={(event) => setQuery(event.target.value)}
       />
       {changeError && <p role="alert">{changeError.message}</p>}
+      {tasks.isError && tasks.data && <p role="alert">{tasks.error.message}</p>}
       <TaskList query={query} tasks={tasks} />
     </main>
   );
@@ -58,14 +59,16 @@ function TaskList({
   query: string;
   tasks: ReturnType<typeof useTasks>;
 }) {
-  if (tasks.isPending) {
-    return (
-      <p role="status" aria-busy="true">
-        Loading your tasks…
-      </p>
-    );
-  }
-  if (tasks.isError) {
+  // Only a first load can fail with nothing to show. A failed refresh keeps the list on
+  // screen; the page shows why above it.
+  if (tasks.data === undefined) {
+    if (!tasks.isError) {
+      return (
+        <p role="status" aria-busy="true">
+          Loading your tasks…
+        </p>
+      );
+    }
     return (
       <>
         <p role="alert">{tasks.error.message}</p>
