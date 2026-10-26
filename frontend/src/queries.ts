@@ -1,6 +1,7 @@
 import {
   QueryClient,
   useMutation,
+  useMutationState,
   useQuery,
   useQueryClient,
 } from "@tanstack/react-query";
@@ -136,4 +137,17 @@ export function useDeleteTask() {
     },
     (tasks, id) => tasks.filter((task) => task.id !== id),
   );
+}
+
+/**
+ * The error from the most recent toggle, move or delete, if that one failed. Read from the
+ * mutation cache, so a deleted row that comes back can still be explained after it unmounted.
+ */
+export function useTaskChangeError() {
+  const changes = useMutationState({
+    filters: { mutationKey: TASKS_KEY },
+    select: (mutation) => mutation.state,
+  });
+  const latest = changes.at(-1);
+  return latest?.status === "error" ? latest.error : null;
 }

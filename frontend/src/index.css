@@ -15,7 +15,8 @@
 }
 
 nav a,
-nav button {
+nav button,
+[role="group"] button {
   white-space: nowrap;
 }
 
@@ -34,4 +35,46 @@ nav ul:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.tasks {
+  padding: 0;
+}
+
+.task {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  border-bottom: 1px solid var(--pico-muted-border-color);
+}
+
+/* The checkbox itself is small; its label gives it a 44px tap target. */
+.tap {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  margin: 0;
+}
+
+.tap input {
+  margin: 0;
+}
+
+/* The whole row width opens the task; padding makes it a 44px tap target. */
+.task a {
+  flex: 1;
+  min-width: 0;
+  padding-block: 0.625rem;
+  overflow-wrap: anywhere;
+}
+
+.task button {
+  margin: 0.25rem 0;
+}
+
+.done {
+  text-decoration: line-through;
+  color: var(--pico-muted-color);
 }
