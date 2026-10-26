@@ -89,3 +89,21 @@ export const register = (email: string, password: string) =>
 
 export const logout = () =>
   request<void>("/sessions/current", { method: "DELETE" });
+
+export type TaskChanges = Partial<Omit<Task, "id">>;
+
+// encodeURIComponent: an id taken from the page's URL can't change which API path is called.
+const taskPath = (id: string) => `/tasks/${encodeURIComponent(id)}`;
+
+export const listTasks = () => request<Task[]>("/tasks");
+
+export const getTask = (id: string) => request<Task>(taskPath(id));
+
+export const createTask = (description: string) =>
+  request<Task>("/tasks", { method: "POST", body: { description } });
+
+export const updateTask = (id: string, changes: TaskChanges) =>
+  request<Task>(taskPath(id), { method: "PATCH", body: changes });
+
+export const deleteTask = (id: string) =>
+  request<void>(taskPath(id), { method: "DELETE" });
