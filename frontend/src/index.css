@@ -1,0 +1,14 @@
+/* App styles on top of Pico, which styles the plain HTML elements. */
+
+[role="alert"] {
+  color: var(--pico-del-color);
+}
+
+.narrow {
+  max-width: 30rem;
+}
+
+/* Long email addresses wrap instead of pushing the header off a phone screen. */
+.email {
+  overflow-wrap: anywhere;
+}

@@ -4,7 +4,7 @@ import { afterAll, afterEach, beforeAll, vi } from "vitest";
 import { clearAuth } from "../auth.ts";
 import { resetDb, server } from "./fakeApi.ts";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
+beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 
 afterEach(() => {
   cleanup();
