@@ -11,6 +11,10 @@ import {
 const isNotFound = (error: unknown) =>
   error instanceof ApiError && error.status === 404;
 
+// Loading by id can only fail validation on the id itself: a garbled link is a missing task.
+const isBadId = (error: unknown) =>
+  error instanceof ApiError && error.status === 400;
+
 const BackLink = () => <Link to="/tasks">Back to my tasks</Link>;
 
 function NotFound() {
@@ -25,7 +29,7 @@ function NotFound() {
 export function TaskDetailPage() {
   const { id = "" } = useParams();
   const task = useTask(id);
-  if (isNotFound(task.error)) return <NotFound />;
+  if (isNotFound(task.error) || isBadId(task.error)) return <NotFound />;
   if (task.isPending) {
     return (
       <main className="container">
