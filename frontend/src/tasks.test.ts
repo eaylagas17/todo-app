@@ -21,6 +21,8 @@ describe("positionBetween", () => {
     expect(positionBetween(undefined, 1)).toBe(0));
   it("goes one above the last task", () =>
     expect(positionBetween(2.5, undefined)).toBe(3.5));
+  it("starts an empty list at 1, like the server", () =>
+    expect(positionBetween()).toBe(1));
 });
 
 describe("byPosition", () => {
