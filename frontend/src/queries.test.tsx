@@ -195,3 +195,30 @@ it("retries only failures that might pass a moment later", () => {
   expect(retry(0, new NetworkError())).toBe(true);
   expect(retry(0, new NetworkError(true))).toBe(false);
 });
+
+it("sends quick changes to the same task one at a time, in order", async () => {
+  const [a] = seedTasks(ada, ["a"]);
+  const { wait, release } = gate();
+  let calls = 0;
+  server.use(
+    http.patch("/api/tasks/:id", async () => {
+      calls += 1;
+      if (calls === 1) await wait;
+    }),
+  );
+  const { result } = renderHookWithClient(() => ({
+    list: useTasks(),
+    toggle: useToggleTask(),
+  }));
+  await waitFor(() => expect(result.current.list.data).toHaveLength(1));
+  act(() => result.current.toggle.mutate({ id: a.id, completed: true }));
+  act(() => result.current.toggle.mutate({ id: a.id, completed: false }));
+  await waitFor(() =>
+    expect(result.current.list.data?.[0].completed).toBe(false),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(calls).toBe(1);
+  release();
+  await waitFor(() => expect(calls).toBe(2));
+  await waitFor(() => expect(db.tasks.get(a.id)?.task.completed).toBe(false));
+});
