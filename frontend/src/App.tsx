@@ -3,6 +3,7 @@ import { Link, Navigate, Outlet, Route, Routes } from "react-router";
 import { logout } from "./api.ts";
 import { clearAuth, useAuth } from "./auth.ts";
 import { SignInPage } from "./pages/SignInPage.tsx";
+import { TaskDetailPage } from "./pages/TaskDetailPage.tsx";
 import { TaskListPage } from "./pages/TaskListPage.tsx";
 
 function RequireAuth() {
@@ -49,6 +50,7 @@ function App() {
       <Route path="/login" element={<SignInPage />} />
       <Route element={<RequireAuth />}>
         <Route path="/tasks" element={<TaskListPage />} />
+        <Route path="/tasks/:id" element={<TaskDetailPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/tasks" replace />} />
     </Routes>
