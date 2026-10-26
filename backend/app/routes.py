@@ -2,10 +2,13 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app import crud
 from app.db import DbSession
+from app.errors import ServiceUnavailable
 from app.models import Task, User, UserSession
 from app.schemas import AuthOut, Credentials, TaskCreate, TaskOut, TaskUpdate, UserOut
 from app.security import current_session, current_user
@@ -71,3 +74,12 @@ def update_task(changes: TaskUpdate, task: OwnedTask, db: DbSession) -> Task:
 @router.delete("/tasks/{task_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_task(task: OwnedTask, db: DbSession) -> None:
     crud.delete_task(db, task)
+
+
+@router.get("/health")
+def health(db: DbSession) -> dict[str, str]:
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        raise ServiceUnavailable from None
+    return {"status": "ok"}

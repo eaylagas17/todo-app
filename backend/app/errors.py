@@ -41,6 +41,12 @@ class TaskNotFound(AppError):
     message = "Task not found"
 
 
+class ServiceUnavailable(AppError):
+    status_code = 503
+    code = "SERVICE_UNAVAILABLE"
+    message = "Database unavailable"
+
+
 def error_response(
     status_code: int,
     code: str,
