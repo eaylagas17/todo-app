@@ -38,7 +38,7 @@ uv run pytest --cov=app             # 49 tests on SQLite
 TEST_DATABASE_URL=postgresql+psycopg://todo:todo@localhost:5433/todo_test uv run pytest   # the same tests on Postgres
 cd ../frontend
 npm ci
-npm test                            # 71 tests
+npm test                            # 76 tests
 npm run lint && npm run typecheck && npm run format:check
 ```
 
@@ -213,8 +213,8 @@ A task is `{id, description, completed, position}`. Interactive docs: http://loc
 ## Testing
 
 - **Backend:** pytest, 49 tests through the real HTTP stack (FastAPI's `TestClient`), each on a fresh database. They run on SQLite by default and on Postgres with `TEST_DATABASE_URL`; CI runs both. Coverage: 98%.
-- **Frontend:** Vitest (Jest-compatible API) with Testing Library (the successor to Enzyme) and Mock Service Worker, 71 tests. Tests drive the whole app the way a person does, finding controls by their accessible names; MSW answers with the real API's status codes and error envelope, so the real request code runs. Coverage: 97% of statements, 91% of branches.
-- **TDD in the history:** each `feat:` commit follows the `test:` commit that failed first. Four bugs found while checking the app in a real browser (a sign-in that hung silently while offline, two inaccurate screen-reader announcements, and a garbled task link) each got a failing test before the fix.
+- **Frontend:** Vitest (Jest-compatible API) with Testing Library (the successor to Enzyme) and Mock Service Worker, 76 tests. Tests drive the whole app the way a person does, finding controls by their accessible names; MSW answers with the real API's status codes and error envelope, so the real request code runs. Coverage: 97% of statements, 94% of branches.
+- **TDD in the history:** each `feat:` commit follows the `test:` commit that failed first. Four bugs found while checking the app in a real browser (a sign-in that hung silently while offline, two inaccurate screen-reader announcements, and a garbled task link) each got a failing test before the fix. An independent review of the finished code then found four more (refusals retried for seconds before showing, a failed refresh hiding the list and an unsaved edit, two quick changes to one task saved out of order, and a late failure from a previous session reaching the next user's list), fixed the same way.
 - **Checked by hand in a real browser** against the real API: every flow, drag and drop with mouse, touch and keyboard, and layouts at 375, 768 and 1280 px.
 
 ### Edge cases
