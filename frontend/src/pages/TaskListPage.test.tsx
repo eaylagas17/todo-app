@@ -211,3 +211,29 @@ it("never shows the previous user's tasks after switching accounts", async () =>
     await screen.findByText("No tasks yet. Add your first one above."),
   ).toBeInTheDocument();
 });
+
+it("never shows the previous user's tasks when one of their changes fails late", async () => {
+  seedTasks(ada, ["Ada's secret"]);
+  seedUser("grace@example.com");
+  const { wait, release } = gate();
+  server.use(
+    http.delete("/api/tasks/:id", async () => {
+      await wait;
+      return exploded();
+    }),
+  );
+  const { user } = renderApp("/tasks", { as: ada });
+  await user.click(
+    await screen.findByRole("button", { name: "Delete Ada's secret" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Sign out" }));
+  await user.type(await screen.findByLabelText("Email"), "grace@example.com");
+  await user.type(screen.getByLabelText("Password"), "correct-horse");
+  await user.click(screen.getByRole("button", { name: "Sign in" }));
+  expect(
+    await screen.findByText("No tasks yet. Add your first one above."),
+  ).toBeInTheDocument();
+  release();
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  expect(screen.queryByText("Ada's secret")).not.toBeInTheDocument();
+});
