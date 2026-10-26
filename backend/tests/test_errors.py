@@ -39,7 +39,10 @@ def test_unexpected_errors_do_not_leak_details(client, monkeypatch):
     )
     assert response.status_code == 500
     assert response.json() == {
-        "error": {"code": "INTERNAL_ERROR", "message": "Something went wrong. Please try again."}
+        "error": {
+            "code": "INTERNAL_ERROR",
+            "message": "Something went wrong. Please try again.",
+        }
     }
     assert "secret" not in response.text
 
@@ -48,7 +51,12 @@ def test_unexpected_errors_do_not_leak_details(client, monkeypatch):
     ("error", "message"),
     [
         (
-            {"type": "missing", "loc": ("body", "task_id"), "msg": "Field required", "input": None},
+            {
+                "type": "missing",
+                "loc": ("body", "task_id"),
+                "msg": "Field required",
+                "input": None,
+            },
             "Task id is required",
         ),
         (

@@ -29,7 +29,11 @@ def test_register_stores_only_hashes(client, db):
 @pytest.mark.parametrize(
     ("payload", "field", "message"),
     [
-        ({"email": "not-an-email", "password": "correct-horse"}, "email", "Email is invalid"),
+        (
+            {"email": "not-an-email", "password": "correct-horse"},
+            "email",
+            "Email is invalid",
+        ),
         ({"password": "correct-horse"}, "email", "Email is required"),
         (
             {"email": "ada@example.com", "password": "short"},
@@ -52,7 +56,11 @@ def test_register_rejects_invalid_input(client, payload, field, message):
     response = client.post("/api/users", json=payload)
     assert response.status_code == 400
     assert response.json() == {
-        "error": {"code": "VALIDATION_ERROR", "message": message, "fields": {field: message}}
+        "error": {
+            "code": "VALIDATION_ERROR",
+            "message": message,
+            "fields": {field: message},
+        }
     }
 
 
@@ -99,13 +107,22 @@ def test_protected_routes_need_a_token(client):
 def test_sign_out_revokes_only_that_session(client):
     first = register(client)["token"]
     second = sign_in(client).json()["token"]
-    assert client.delete("/api/sessions/current", headers=bearer(first)).status_code == 204
-    assert client.delete("/api/sessions/current", headers=bearer(first)).status_code == 401
-    assert client.delete("/api/sessions/current", headers=bearer(second)).status_code == 204
+    assert (
+        client.delete("/api/sessions/current", headers=bearer(first)).status_code == 204
+    )
+    assert (
+        client.delete("/api/sessions/current", headers=bearer(first)).status_code == 401
+    )
+    assert (
+        client.delete("/api/sessions/current", headers=bearer(second)).status_code
+        == 204
+    )
 
 
 def test_expired_tokens_are_rejected(client, db):
     token = register(client)["token"]
     db.scalars(select(UserSession)).one().expires_at = utcnow() - timedelta(seconds=1)
     db.commit()
-    assert client.delete("/api/sessions/current", headers=bearer(token)).status_code == 401
+    assert (
+        client.delete("/api/sessions/current", headers=bearer(token)).status_code == 401
+    )
