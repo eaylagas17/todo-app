@@ -34,13 +34,31 @@ From the repository root:
 ```bash
 docker compose up -d --wait db      # Postgres, for the second backend run
 cd backend
-uv run pytest --cov=app             # 49 tests on SQLite
+uv run pytest --cov=app             # 52 tests on SQLite
 TEST_DATABASE_URL=postgresql+psycopg://todo:todo@localhost:5433/todo_test uv run pytest   # the same tests on Postgres
 cd ../frontend
 npm ci
 npm test                            # 76 tests
 npm run lint && npm run typecheck && npm run format:check
 ```
+
+## How this answers the brief
+
+| The brief asks for | Where it is |
+|---|---|
+| A REST-style backend API with standard HTTP semantics | FastAPI under `/api`: 200/201/204 on success, 400 for validation, 401 when not signed in, 404 for a missing task (also for another user's, so ids can't be probed), 409 for a taken email. See [API](#api), or `/docs` while it runs |
+| Storage | PostgreSQL (Docker and CI); SQLite for the no-Docker run |
+| A web client with log-in and CRUD on the user's own tasks | Sign-in, list, detail screens; every task query on the server is scoped to the signed-in user |
+| A responsive UI | Checked at 375, 768 and 1280 px: no sideways scrolling, 44 px tap targets, drag and drop by touch |
+| The suggested UX | All six hints: see [Features completed](#features-completed) |
+| A README with running instructions and a summary | This file: [Run it on a Mac](#run-it-on-a-mac), [Summary](#summary-of-the-assignment) |
+| A shareable git repository we can run | This repository; both run paths were checked from a fresh clone |
+| Community-standard style; no debug logging, TODOs or FIXMEs | Ruff, Prettier and oxlint with default rules, TypeScript strict; CI checks all of it and fails on any of those words |
+| Test coverage | 52 backend tests (98%) and 76 frontend tests (97% of statements); see [Testing](#testing) |
+| **Bonus:** instructions for a distributed cloud | [Deploying to the cloud](#deploying-to-the-cloud) |
+| **Bonus:** test-driven development | `git log`: each `test:` commit (failing) comes before the `feat:` or `fix:` that makes it pass |
+| **Bonus:** functional, declarative code | `frontend/src/tasks.ts`: pure functions that never mutate (`toSorted`, `toSpliced`); `matchesSearch` returns a predicate for `filter`. `queries.ts`: `useOptimisticTaskMutation(send, apply)` is a higher-order hook that the tick, move and delete hooks compose. `backend/app/errors.py`: a dispatch table of message functions |
+| **Bonus:** asynchronous and concurrent execution through high-level abstractions | TanStack Query: cached queries, cancellation, optimistic mutations with rollback, a mutation scope that sends changes to one task in order, a retry policy. `AbortSignal.timeout` for every request. On the server, FastAPI runs handlers in a thread pool over a connection pool, and the database's unique index settles simultaneous sign-ups |
 
 ## Summary of the assignment
 
@@ -212,7 +230,7 @@ A task is `{id, description, completed, position}`. Interactive docs: http://loc
 
 ## Testing
 
-- **Backend:** pytest, 49 tests through the real HTTP stack (FastAPI's `TestClient`), each on a fresh database. They run on SQLite by default and on Postgres with `TEST_DATABASE_URL`; CI runs both. Coverage: 98%.
+- **Backend:** pytest, 52 tests through the real HTTP stack (FastAPI's `TestClient`), each on a fresh database. They run on SQLite by default and on Postgres with `TEST_DATABASE_URL`; CI runs both. Coverage: 98%.
 - **Frontend:** Vitest (Jest-compatible API) with Testing Library (the successor to Enzyme) and Mock Service Worker, 76 tests. Tests drive the whole app the way a person does, finding controls by their accessible names; MSW answers with the real API's status codes and error envelope, so the real request code runs. Coverage: 97% of statements, 94% of branches.
 - **TDD in the history:** each `feat:` commit follows the `test:` commit that failed first. Four bugs found while checking the app in a real browser (a sign-in that hung silently while offline, two inaccurate screen-reader announcements, and a garbled task link) each got a failing test before the fix. An independent review of the finished code then found four more (refusals retried for seconds before showing, a failed refresh hiding the list and an unsaved edit, two quick changes to one task saved out of order, and a late failure from a previous session reaching the next user's list), fixed the same way.
 - **Checked by hand in a real browser** against the real API: every flow, drag and drop with mouse, touch and keyboard, and layouts at 375, 768 and 1280 px.
