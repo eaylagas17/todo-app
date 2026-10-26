@@ -50,9 +50,13 @@ it("moves a task with the keyboard", async () => {
   const [a] = seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await screen.findByRole("button", { name: "Reorder a" })).focus();
+  const announced = () => screen.getByRole("status");
   await user.keyboard("[Space]");
+  await waitFor(() => expect(announced()).toHaveTextContent("Picked up a."));
   await user.keyboard("[ArrowDown]");
+  await waitFor(() => expect(announced()).toHaveTextContent("a is over b."));
   await user.keyboard("[Space]");
+  await waitFor(() => expect(announced()).toHaveTextContent("a was moved."));
   await waitFor(() => expect(taskLinks()).toEqual(["b", "a", "c"]));
   // a now sits between b (2) and c (3).
   await waitFor(() =>
