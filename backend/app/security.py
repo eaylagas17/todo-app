@@ -9,7 +9,7 @@ from sqlalchemy import select
 
 from app.db import DbSession, utcnow
 from app.errors import AuthRequired
-from app.models import UserSession
+from app.models import User, UserSession
 
 hasher = PasswordHasher()
 bearer = HTTPBearer(auto_error=False)
@@ -45,3 +45,9 @@ def current_session(
     if user_session is None:
         raise AuthRequired
     return user_session
+
+
+def current_user(
+    user_session: Annotated[UserSession, Depends(current_session)],
+) -> User:
+    return user_session.user

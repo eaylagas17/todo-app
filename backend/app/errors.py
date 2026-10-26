@@ -35,6 +35,12 @@ class EmailTaken(AppError):
     message = "Email is already registered"
 
 
+class TaskNotFound(AppError):
+    status_code = 404
+    code = "TASK_NOT_FOUND"
+    message = "Task not found"
+
+
 def error_response(
     status_code: int,
     code: str,

@@ -1,10 +1,10 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db import Base
+from app.db import Base, utcnow
 
 
 class User(Base):
@@ -25,4 +25,22 @@ class UserSession(Base):
     # timestamptz on Postgres. SQLite drops the offset, which is harmless because every value
     # is UTC and expiry is only ever compared inside SQL.
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
-    user: Mapped[User] = relationship()
+    # Loaded in the same query as the session, so finding the signed-in user costs one query.
+    user: Mapped[User] = relationship(lazy="joined")
+
+
+class Task(Base):
+    __tablename__ = "tasks"
+    # A user's list in order is one range scan of this index, and so is MAX(position).
+    __table_args__ = (Index("ix_tasks_owner_position", "owner_id", "position"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    description: Mapped[str] = mapped_column(Text)
+    completed: Mapped[bool] = mapped_column(default=False)
+    position: Mapped[float]
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )

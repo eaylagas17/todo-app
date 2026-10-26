@@ -1,13 +1,14 @@
 import secrets
+import uuid
 from datetime import timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db import utcnow
-from app.errors import EmailTaken, InvalidCredentials
-from app.models import User, UserSession
+from app.errors import EmailTaken, InvalidCredentials, TaskNotFound
+from app.models import Task, User, UserSession
 from app.security import hash_password, hash_token, verify_password
 
 SESSION_LIFETIME = timedelta(days=7)
@@ -49,4 +50,42 @@ def create_session(db: Session, user: User) -> str:
 
 def delete_session(db: Session, user_session: UserSession) -> None:
     db.delete(user_session)
+    db.commit()
+
+
+def list_tasks(db: Session, owner: User) -> list[Task]:
+    query = (
+        select(Task)
+        .where(Task.owner_id == owner.id)
+        .order_by(Task.position, Task.created_at)
+    )
+    return list(db.scalars(query))
+
+
+def create_task(db: Session, owner: User, description: str) -> Task:
+    # Two requests at once can read the same MAX and get the same position. The tie is harmless
+    # (created_at orders them); the fix is to lock the owner's row (SELECT ... FOR UPDATE) first.
+    top = db.scalar(select(func.max(Task.position)).where(Task.owner_id == owner.id))
+    task = Task(owner_id=owner.id, description=description, position=(top or 0) + 1)
+    db.add(task)
+    db.commit()
+    return task
+
+
+def get_task(db: Session, owner: User, task_id: uuid.UUID) -> Task:
+    task = db.scalar(select(Task).where(Task.id == task_id, Task.owner_id == owner.id))
+    if task is None:
+        raise TaskNotFound
+    return task
+
+
+def update_task(db: Session, task: Task, changes: dict) -> Task:
+    for field, value in changes.items():
+        setattr(task, field, value)
+    db.commit()
+    return task
+
+
+def delete_task(db: Session, task: Task) -> None:
+    db.delete(task)
     db.commit()
