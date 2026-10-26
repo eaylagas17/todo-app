@@ -102,6 +102,9 @@ export function useOptimisticTaskMutation<V>(
   const queryClient = useQueryClient();
   return useMutation({
     mutationKey: TASKS_KEY,
+    // One queue for every task change: each request waits for the one before it, so the
+    // server applies them in click order. onMutate still runs at once, so the screen doesn't wait.
+    scope: { id: "tasks" },
     mutationFn: send,
     onMutate: async (variables) => {
       // A refetch already on its way would land after our change and overwrite it.
