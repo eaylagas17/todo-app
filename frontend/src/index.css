@@ -88,3 +88,12 @@ nav ul:last-child {
   touch-action: none;
   cursor: grab;
 }
+
+/* Detail screen: the back link and the Done checkbox's label are full 44px tap targets. */
+.back,
+.check {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-height: 44px;
+}

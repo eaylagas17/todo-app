@@ -15,7 +15,11 @@ const isNotFound = (error: unknown) =>
 const isBadId = (error: unknown) =>
   error instanceof ApiError && error.status === 400;
 
-const BackLink = () => <Link to="/tasks">Back to my tasks</Link>;
+const BackLink = () => (
+  <Link to="/tasks" className="back">
+    Back to my tasks
+  </Link>
+);
 
 function NotFound() {
   return (
@@ -96,7 +100,7 @@ function TaskForm({ task }: { task: Task }) {
             required
           />
         </label>
-        <label>
+        <label className="check">
           <input
             type="checkbox"
             checked={completed}
