@@ -15,10 +15,6 @@ hasher = PasswordHasher()
 bearer = HTTPBearer(auto_error=False)
 
 
-def hash_password(plain: str) -> str:
-    return hasher.hash(plain)
-
-
 def verify_password(plain: str, hashed: str) -> bool:
     try:
         return hasher.verify(hashed, plain)

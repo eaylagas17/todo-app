@@ -58,7 +58,7 @@ def sign_in(credentials: Credentials, db: DbSession) -> AuthOut:
 def sign_out(
     user_session: Annotated[UserSession, Depends(current_session)], db: DbSession
 ) -> None:
-    crud.delete_session(db, user_session)
+    crud.delete(db, user_session)
 
 
 def owned_task(task_id: uuid.UUID, user: SignedInUser, db: DbSession) -> Task:
@@ -105,7 +105,7 @@ def update_task(changes: TaskUpdate, task: OwnedTask, db: DbSession) -> Task:
     responses=errors(400, 401, 404),
 )
 def delete_task(task: OwnedTask, db: DbSession) -> None:
-    crud.delete_task(db, task)
+    crud.delete(db, task)
 
 
 @router.get("/health", responses=errors(503))

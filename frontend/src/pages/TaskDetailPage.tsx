@@ -8,12 +8,8 @@ import {
   useUpdateTask,
 } from "../queries.ts";
 
-const isNotFound = (error: unknown) =>
-  error instanceof ApiError && error.status === 404;
-
-// Loading by id can only fail validation on the id itself: a garbled link is a missing task.
-const isBadId = (error: unknown) =>
-  error instanceof ApiError && error.status === 400;
+const hasStatus = (error: unknown, ...statuses: number[]) =>
+  error instanceof ApiError && statuses.includes(error.status);
 
 const BackLink = () => (
   <Link to="/tasks" className="back">
@@ -33,7 +29,8 @@ function NotFound() {
 export function TaskDetailPage() {
   const { id = "" } = useParams();
   const task = useTask(id);
-  if (isNotFound(task.error) || isBadId(task.error)) return <NotFound />;
+  // Loading by id can only fail validation on the id itself: a garbled link is a missing task.
+  if (hasStatus(task.error, 404, 400)) return <NotFound />;
   if (task.data === undefined) {
     if (!task.isError) {
       return (
@@ -84,7 +81,8 @@ function TaskForm({
     : task.completed;
   const error = update.error ?? toggle.error ?? refreshError;
 
-  if (isNotFound(update.error) || isNotFound(toggle.error)) return <NotFound />;
+  if (hasStatus(update.error, 404) || hasStatus(toggle.error, 404))
+    return <NotFound />;
 
   function save(event: FormEvent) {
     event.preventDefault();

@@ -9,16 +9,16 @@ from sqlalchemy.orm import Session
 from app.db import utcnow
 from app.errors import EmailTaken, InvalidCredentials, TaskNotFound
 from app.models import Task, User, UserSession
-from app.security import hash_password, hash_token, verify_password
+from app.security import hash_token, hasher, verify_password
 
 SESSION_LIFETIME = timedelta(days=7)
 # Checking a password against this costs the same as a real check, so an unknown email takes
 # as long to reject as a wrong password and response times don't reveal who has an account.
-DUMMY_HASH = hash_password(secrets.token_urlsafe())
+DUMMY_HASH = hasher.hash(secrets.token_urlsafe())
 
 
 def create_user(db: Session, email: str, password: str) -> User:
-    user = User(email=email, password_hash=hash_password(password))
+    user = User(email=email, password_hash=hasher.hash(password))
     db.add(user)
     try:
         db.commit()
@@ -46,11 +46,6 @@ def create_session(db: Session, user: User) -> str:
     )
     db.commit()
     return token
-
-
-def delete_session(db: Session, user_session: UserSession) -> None:
-    db.delete(user_session)
-    db.commit()
 
 
 def list_tasks(db: Session, owner: User) -> list[Task]:
@@ -86,6 +81,6 @@ def update_task(db: Session, task: Task, changes: dict) -> Task:
     return task
 
 
-def delete_task(db: Session, task: Task) -> None:
-    db.delete(task)
+def delete(db: Session, row: Task | UserSession) -> None:
+    db.delete(row)
     db.commit()

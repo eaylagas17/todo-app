@@ -14,7 +14,6 @@ import {
   useSortable,
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
 import type { Task } from "../api.ts";
 import { useMoveTask } from "../queries.ts";
 import { moveTask } from "../tasks.ts";
@@ -79,11 +78,15 @@ function SortableRow({ task }: { task: Task }) {
     transform,
     transition,
   } = useSortable({ id: task.id });
+  // Whole pixels, as dnd-kit's own CSS.Translate helper does, so text stays sharp mid-drag.
+  const offset = transform
+    ? `translate3d(${Math.round(transform.x)}px, ${Math.round(transform.y)}px, 0)`
+    : undefined;
   return (
     <TaskItem
       task={task}
       ref={setNodeRef}
-      style={{ transform: CSS.Translate.toString(transform), transition }}
+      style={{ transform: offset, transition }}
       handle={
         <button
           type="button"
