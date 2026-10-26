@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import FastAPI, HTTPException
+from fastapi.openapi.utils import get_openapi
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
@@ -32,8 +33,28 @@ class HashedFiles(StaticFiles):
         return response
 
 
+def without_422(app: FastAPI):
+    """FastAPI documents every validation failure as 422; ours answer 400 (errors.py)."""
+
+    def openapi() -> dict:
+        if app.openapi_schema is None:
+            schema = get_openapi(
+                title=app.title, version=app.version, routes=app.routes
+            )
+            for methods in schema["paths"].values():
+                for operation in methods.values():
+                    operation["responses"].pop("422", None)
+            for unused in ("HTTPValidationError", "ValidationError"):
+                schema["components"]["schemas"].pop(unused, None)
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    return openapi
+
+
 def create_app(static_dir: Path | None = None) -> FastAPI:
     app = FastAPI(title="To-Do API", lifespan=lifespan)
+    app.openapi = without_422(app)
     app.include_router(router)
     register_error_handlers(app)
     if static_dir is not None:

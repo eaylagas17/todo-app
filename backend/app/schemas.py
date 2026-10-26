@@ -62,3 +62,15 @@ class TaskOut(Output):
     description: str
     completed: bool
     position: float
+
+
+class ErrorDetail(Output):
+    code: str
+    message: str
+    fields: dict[str, str] | None = None
+
+
+class ErrorOut(Output):
+    """The error envelope, as documented in /docs; errors.py builds it."""
+
+    error: ErrorDetail
