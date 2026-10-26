@@ -1,9 +1,10 @@
 import { act, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, it } from "vitest";
-import type { AuthResult, Task } from "./api.ts";
+import { ApiError, type AuthResult, NetworkError, type Task } from "./api.ts";
 import { saveAuth } from "./auth.ts";
 import {
+  createQueryClient,
   TASKS_KEY,
   taskKey,
   useCreateTask,
@@ -175,4 +176,22 @@ it("updates the description in the list and detail caches", async () => {
     ),
   );
   expect(result.current.list.data?.[0].description).toBe("Buy oat milk");
+});
+
+it("retries only failures that might pass a moment later", () => {
+  const retry = createQueryClient().getDefaultOptions().queries?.retry as (
+    failures: number,
+    error: Error,
+  ) => boolean;
+  const serverSaysNo = new ApiError(404, "TASK_NOT_FOUND", "Task not found");
+  const serverHiccup = new ApiError(
+    503,
+    "SERVICE_UNAVAILABLE",
+    "Database unavailable",
+  );
+  expect(retry(0, serverSaysNo)).toBe(false);
+  expect(retry(0, serverHiccup)).toBe(true);
+  expect(retry(3, serverHiccup)).toBe(false);
+  expect(retry(0, new NetworkError())).toBe(true);
+  expect(retry(0, new NetworkError(true))).toBe(false);
 });
