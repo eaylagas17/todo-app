@@ -1,5 +1,11 @@
 /* App styles on top of Pico, which styles the plain HTML elements. */
 
+/* Pico spaces header and main only as direct children of <body>; ours sit inside #root. */
+#root > header,
+#root > main {
+  padding-block: var(--pico-block-spacing-vertical);
+}
+
 [role="alert"] {
   color: var(--pico-del-color);
 }
@@ -8,7 +14,24 @@
   max-width: 30rem;
 }
 
-/* Long email addresses wrap instead of pushing the header off a phone screen. */
+nav a,
+nav button {
+  white-space: nowrap;
+}
+
+/* Pico's compact nav buttons are 38px tall; 44px is the minimum comfortable tap target. */
+nav button {
+  min-height: 44px;
+}
+
+/* A long email shrinks to an ellipsis instead of pushing the header wider than a phone. */
+nav ul:last-child {
+  min-width: 0;
+}
+
 .email {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
