@@ -10,6 +10,17 @@ for tool in uv node; do
   fi
 done
 
+# The same versions as "engines" in frontend/package.json (what Vite, Vitest and jsdom support).
+if ! node -e '
+  const [major, minor, patch] = process.versions.node.split(".").map(Number);
+  const atLeast = (m, p) => minor > m || (minor === m && patch >= p);
+  const ok = major >= 26 || (major === 24 && atLeast(15, 0)) || (major === 22 && atLeast(22, 2));
+  process.exit(ok ? 0 : 1);
+'; then
+  echo "Node $(node --version) is too old: use 22.22+, 24.15+ or 26+. Update with: brew upgrade node" >&2
+  exit 1
+fi
+
 [ -d frontend/node_modules ] || (cd frontend && npm ci)
 
 # Ctrl+C (or either server stopping) stops both.

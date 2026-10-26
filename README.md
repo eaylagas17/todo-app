@@ -23,6 +23,8 @@ brew install uv node
 ./run.sh
 ```
 
+Node 24.15+ (or 22.22+, or 26+) is needed for the frontend tools; `run.sh` checks and says so if yours is older.
+
 Open http://localhost:5173. The API runs on SQLite (port 8000) and Vite serves the frontend; Ctrl+C stops both.
 
 ### Run the tests
