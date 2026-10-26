@@ -1,5 +1,7 @@
 # To-Do App
 
+[![CI](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml)
+
 A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks on their own screen. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
 
 **Demo account:** `demo@example.com` / `demo-password` (created automatically, with four tasks).
