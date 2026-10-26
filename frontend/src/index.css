@@ -78,3 +78,13 @@ nav ul:last-child {
   text-decoration: line-through;
   color: var(--pico-muted-color);
 }
+
+/* The handle is the only place a drag can start, so a finger on the rest of the row still scrolls. */
+.handle {
+  min-width: 44px;
+  min-height: 44px;
+  padding: 0;
+  margin: 0;
+  touch-action: none;
+  cursor: grab;
+}

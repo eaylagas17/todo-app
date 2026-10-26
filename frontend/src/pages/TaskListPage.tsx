@@ -1,4 +1,5 @@
 import { type FormEvent, useState } from "react";
+import { SortableTaskList } from "../components/SortableTaskList.tsx";
 import { TaskItem } from "../components/TaskItem.tsx";
 import { useCreateTask, useTaskChangeError, useTasks } from "../queries.ts";
 import { matchesSearch } from "../tasks.ts";
@@ -79,6 +80,8 @@ function TaskList({
   // Derived, not stored: the visible list is recomputed from the cache and the query.
   const visible = tasks.data.filter(matchesSearch(query));
   if (visible.length === 0) return <p>No tasks match "{query.trim()}".</p>;
+  // Edge case E28: positions only make sense in the full list, so no dragging while searching.
+  if (!query.trim()) return <SortableTaskList tasks={visible} />;
   return (
     <ul className="tasks" aria-label="Tasks">
       {visible.map((task) => (

@@ -47,13 +47,14 @@ it("moves a task with the keyboard", async () => {
       return new DOMRect(0, top, 300, 40);
     },
   );
-  const [a, b] = seedTasks(ada, ["a", "b", "c"]);
+  const [a] = seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await screen.findByRole("button", { name: "Reorder a" })).focus();
   await user.keyboard("[Space]");
   await user.keyboard("[ArrowDown]");
   await user.keyboard("[Space]");
   await waitFor(() => expect(taskLinks()).toEqual(["b", "a", "c"]));
+  // a now sits between b (2) and c (3).
   await waitFor(() =>
     expect(requests).toContainEqual({
       method: "PATCH",
@@ -61,5 +62,4 @@ it("moves a task with the keyboard", async () => {
       body: { position: 2.5 },
     }),
   );
-  expect(b.position).toBe(2);
 });

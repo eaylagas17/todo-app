@@ -1,13 +1,20 @@
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import { Link } from "react-router";
 import type { Task } from "../api.ts";
 import { useDeleteTask, useToggleTask } from "../queries.ts";
 
-export function TaskItem({ task, handle }: { task: Task; handle?: ReactNode }) {
+type Props = {
+  task: Task;
+  handle?: ReactNode;
+  ref?: Ref<HTMLLIElement>;
+  style?: CSSProperties;
+};
+
+export function TaskItem({ task, handle, ref, style }: Props) {
   const toggle = useToggleTask();
   const remove = useDeleteTask();
   return (
-    <li className="task">
+    <li className="task" ref={ref} style={style}>
       {handle}
       <label className="tap">
         <input
