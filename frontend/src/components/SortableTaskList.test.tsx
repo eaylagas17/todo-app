@@ -67,3 +67,20 @@ it("moves a task with the keyboard", async () => {
     }),
   );
 });
+
+it("says nothing moved when a task is dropped where it started", async () => {
+  seedTasks(ada, ["a", "b"]);
+  const { user } = renderApp("/tasks", { as: ada });
+  (await screen.findByRole("button", { name: "Reorder a" })).focus();
+  await user.keyboard("[Space]");
+  await waitFor(() =>
+    expect(screen.getByRole("status")).toHaveTextContent("Picked up a."),
+  );
+  await user.keyboard("[Space]");
+  await waitFor(() =>
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Moving a was cancelled.",
+    ),
+  );
+  expect(requests.filter((r) => r.method === "PATCH")).toEqual([]);
+});
