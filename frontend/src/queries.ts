@@ -16,6 +16,7 @@ import {
   type TaskChanges,
   updateTask,
 } from "./api.ts";
+import { getAuth } from "./auth.ts";
 import { byPosition } from "./tasks.ts";
 
 // Retry only what might succeed a moment later: a server error or a dropped connection.
@@ -63,16 +64,26 @@ export function useTask(id: string) {
   });
 }
 
+// A change can finish after its user signs out and someone else signs in (sign-out empties
+// the cache, but requests already sent still complete). Each one records the session it
+// started in, and writes into the cache only if that session is still the current one.
+const startSession = () => ({ session: getAuth()?.token });
+const stillCurrent = (started?: { session?: string }) =>
+  started !== undefined && started.session === getAuth()?.token;
+
 // Not optimistic: the new task's id comes from the server.
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: createTask,
-    onSuccess: (task) =>
+    onMutate: startSession,
+    onSuccess: (task, _description, started) => {
+      if (!stillCurrent(started)) return;
       queryClient.setQueryData<Task[]>(
         TASKS_KEY,
         (tasks) => tasks && [...tasks, task],
-      ),
+      );
+    },
   });
 }
 
@@ -81,7 +92,9 @@ export function useUpdateTask() {
   return useMutation({
     mutationFn: ({ id, description }: { id: string; description: string }) =>
       updateTask(id, { description }),
-    onSuccess: (task) => {
+    onMutate: startSession,
+    onSuccess: (task, _variables, started) => {
+      if (!stillCurrent(started)) return;
       queryClient.setQueryData(taskKey(task.id), task);
       queryClient.setQueryData<Task[]>(
         TASKS_KEY,
@@ -114,10 +127,11 @@ export function useOptimisticTaskMutation<V>(
         TASKS_KEY,
         (tasks) => tasks && apply(tasks, variables),
       );
-      return { snapshot };
+      return { ...startSession(), snapshot };
     },
     onError: (_error, _variables, saved) => {
-      queryClient.setQueryData(TASKS_KEY, saved?.snapshot);
+      if (stillCurrent(saved))
+        queryClient.setQueryData(TASKS_KEY, saved?.snapshot);
     },
     onSettled: () => {
       // Refetch only after the last pending change: an earlier refetch would bring back
