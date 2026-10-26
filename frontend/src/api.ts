@@ -32,7 +32,13 @@ export class ApiError extends Error {
 
 /** There was no answer: offline, DNS failure, refused connection, or a timeout. */
 export class NetworkError extends Error {
-  name = "NetworkError";
+  readonly timedOut: boolean;
+
+  constructor(timedOut = false) {
+    super(timedOut ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    this.name = "NetworkError";
+    this.timedOut = timedOut;
+  }
 }
 
 type Envelope = { error?: { code?: unknown; message?: unknown } };
@@ -65,9 +71,9 @@ export async function request<T>(
       signal: AbortSignal.timeout(10_000),
     });
   } catch (error) {
-    const timedOut =
-      error instanceof DOMException && error.name === "TimeoutError";
-    throw new NetworkError(timedOut ? TIMEOUT_MESSAGE : NETWORK_MESSAGE);
+    throw new NetworkError(
+      error instanceof DOMException && error.name === "TimeoutError",
+    );
   }
   if (response.status === 401 && auth) clearAuth();
   if (!response.ok) throw await toApiError(response);

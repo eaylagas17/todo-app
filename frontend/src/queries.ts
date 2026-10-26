@@ -6,23 +6,35 @@ import {
   useQueryClient,
 } from "@tanstack/react-query";
 import {
+  ApiError,
   createTask,
   deleteTask,
   getTask,
   listTasks,
+  NetworkError,
   type Task,
   type TaskChanges,
   updateTask,
 } from "./api.ts";
 import { byPosition } from "./tasks.ts";
 
+// Retry only what might succeed a moment later: a server error or a dropped connection.
+// The server's own "no" (4xx) and a 10-second timeout are shown at once.
+const worthRetrying = (error: Error) =>
+  error instanceof ApiError
+    ? error.status >= 500
+    : !(error instanceof NetworkError && error.timedOut);
+
 // networkMode "always": TanStack Query's default ("online") pauses every request while the
 // browser reports being offline, which leaves a spinner and no message. We send anyway, fail
 // fast, and show "Can't reach the server" with a way to try again.
-export const createQueryClient = (retry = 3) =>
+export const createQueryClient = (retries = 3) =>
   new QueryClient({
     defaultOptions: {
-      queries: { retry, networkMode: "always" },
+      queries: {
+        retry: (failures, error) => failures < retries && worthRetrying(error),
+        networkMode: "always",
+      },
       mutations: { networkMode: "always" },
     },
   });
