@@ -166,6 +166,16 @@ it("offers a retry when tasks fail to load", async () => {
   ).toBeInTheDocument();
 });
 
+it("keeps the list on screen when a refresh fails", async () => {
+  seedTasks(ada, ["Buy milk"]);
+  const { user } = renderApp("/tasks", { as: ada });
+  await screen.findByRole("link", { name: "Buy milk" });
+  server.use(http.get("/api/tasks", exploded));
+  await user.click(screen.getByRole("checkbox", { name: "Complete Buy milk" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Server exploded");
+  expect(screen.getByRole("link", { name: "Buy milk" })).toBeInTheDocument();
+});
+
 it("returns to sign in when the saved token is no longer valid", async () => {
   renderApp("/tasks", {
     as: { user: { id: "u", email: "ada@example.com" }, token: "expired" },

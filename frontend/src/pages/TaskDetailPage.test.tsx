@@ -73,6 +73,22 @@ it("keeps the task when deletion is cancelled", async () => {
   expect(requests.filter((r) => r.method === "DELETE")).toEqual([]);
 });
 
+it("keeps an unsaved edit when a refresh fails", async () => {
+  const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
+  await user.type(await screen.findByLabelText("Description"), " today");
+  server.use(
+    http.get("/api/tasks/:id", () =>
+      HttpResponse.json(
+        { error: { code: "INTERNAL_ERROR", message: "Server exploded" } },
+        { status: 500 },
+      ),
+    ),
+  );
+  await user.click(screen.getByRole("checkbox", { name: "Done" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("Server exploded");
+  expect(screen.getByLabelText("Description")).toHaveValue("Buy milk today");
+});
+
 it("shows not found for a task that doesn't exist", async () => {
   renderApp("/tasks/missing", { as: ada });
   expect(
