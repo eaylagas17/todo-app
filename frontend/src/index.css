@@ -655,6 +655,29 @@ label {
   margin: 0.25rem 0 1rem;
 }
 
+/* Accents B and C, only when motion is welcome. B: rows glide to new places after a drop
+   (the View Transitions API does the work; it only needs a duration). C: the strike-through
+   draws itself, and a task that becomes ready pulses once. */
+@media (prefers-reduced-motion: no-preference) {
+  ::view-transition-group(*) {
+    animation-duration: 0.3s;
+  }
+
+  .task .title {
+    transition: background-size 0.25s ease-out;
+  }
+
+  .step.pulse {
+    animation: pulse 0.4s ease-out;
+  }
+}
+
+@keyframes pulse {
+  50% {
+    transform: scale(1.3);
+  }
+}
+
 .credit {
   margin-top: 2rem;
   font-size: 0.75rem;
