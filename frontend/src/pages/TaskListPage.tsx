@@ -39,6 +39,9 @@ export function TaskListPage() {
   const category = categories.data?.some((c) => c.id === wanted)
     ? wanted
     : null;
+  // The Completed page (spec §5.7) is this page in another mode, so the panel and search work
+  // the same: /tasks?list=completed.
+  const showingCompleted = params.get("list") === "completed";
 
   const view = params.get("view") === "graph" ? "graph" : "list";
 
@@ -82,22 +85,28 @@ export function TaskListPage() {
           tasks={tasks.data ?? []}
           categories={categories.data ?? []}
           selected={category}
+          showingCompleted={showingCompleted}
         />
         <main className="page">
-          <h1>My tasks</h1>
-          <form className="add" onSubmit={add}>
-            <input
-              aria-label="New task"
-              placeholder="New task"
-              value={title}
-              onChange={(event) => setTitle(event.target.value)}
-              maxLength={200}
-              required
-            />
-            <button type="submit" disabled={!title.trim() || create.isPending}>
-              Add task
-            </button>
-          </form>
+          <h1>{showingCompleted ? "Completed" : "My tasks"}</h1>
+          {!showingCompleted && (
+            <form className="add" onSubmit={add}>
+              <input
+                aria-label="New task"
+                placeholder="New task"
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                maxLength={200}
+                required
+              />
+              <button
+                type="submit"
+                disabled={!title.trim() || create.isPending}
+              >
+                Add task
+              </button>
+            </form>
+          )}
           {create.error && <p role="alert">{create.error.message}</p>}
           <input
             type="search"
@@ -106,24 +115,26 @@ export function TaskListPage() {
             value={query}
             onChange={(event) => setQuery(event.target.value)}
           />
-          <div className="views" role="group" aria-label="View">
-            <button
-              type="button"
-              className="secondary"
-              aria-pressed={view === "list"}
-              onClick={() => showView("list")}
-            >
-              List
-            </button>
-            <button
-              type="button"
-              className="secondary"
-              aria-pressed={view === "graph"}
-              onClick={() => showView("graph")}
-            >
-              Graph
-            </button>
-          </div>
+          {!showingCompleted && (
+            <div className="views" role="group" aria-label="View">
+              <button
+                type="button"
+                className="secondary"
+                aria-pressed={view === "list"}
+                onClick={() => showView("list")}
+              >
+                List
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                aria-pressed={view === "graph"}
+                onClick={() => showView("graph")}
+              >
+                Graph
+              </button>
+            </div>
+          )}
           {changeError && <p role="alert">{changeError.message}</p>}
           {tasks.isError && tasks.data && (
             <p role="alert">{tasks.error.message}</p>
@@ -133,6 +144,7 @@ export function TaskListPage() {
             category={category}
             view={view}
             tasks={tasks}
+            completedPage={showingCompleted}
           />
         </main>
         {openId && tasks.data && (
@@ -167,11 +179,13 @@ function TaskList({
   category,
   view,
   tasks,
+  completedPage,
 }: {
   query: string;
   category: string | null;
   view: "list" | "graph";
   tasks: ReturnType<typeof useTasks>;
+  completedPage: boolean;
 }) {
   const { lingering } = useLinger();
   // Only a first load can fail with nothing to show. A failed refresh keeps the list on
@@ -194,6 +208,22 @@ function TaskList({
     );
   }
   const all = tasks.data;
+  if (completedPage) {
+    // Every completed task, newest first, including ones still greyed in an unfinished chain.
+    const done = newestDone(all.filter(matchesSearch(query)));
+    return (
+      <>
+        <TaskRows label="Completed" tasks={done} done />
+        {done.length === 0 && (
+          <p>
+            {query.trim()
+              ? `No tasks match "${query.trim()}".`
+              : "No completed tasks yet."}
+          </p>
+        )}
+      </>
+    );
+  }
   if (all.length === 0) return <p>No tasks yet. Add your first one above.</p>;
   // Derived, not stored: the main list, the visible part and Recently completed are all
   // recomputed from the cache, the undo windows and the query (spec §5.7).

@@ -11,26 +11,50 @@ type Props = {
   tasks: Task[];
   categories: Category[];
   selected: string | null;
+  /** The Completed page is showing (spec §5.7). */
+  showingCompleted: boolean;
 };
 
-/** Like Notes' folders: All, then each category with its count. Picking one filters the list. */
-export function CategorySidebar({ tasks, categories, selected }: Props) {
+/**
+ * Like Notes' folders: All, then each category with its count of open tasks; picking one filters
+ * the list. Below them, Completed, with its count, opens every completed task.
+ */
+export function CategorySidebar({
+  tasks,
+  categories,
+  selected,
+  showingCompleted,
+}: Props) {
   const [params] = useSearchParams();
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const create = useCreateCategory();
 
-  // One pass over the tasks, then a lookup per category: O(n + c), not O(n · c).
+  // One pass over the tasks, then a lookup per category: O(n + c), not O(n · c). Open tasks
+  // only: a completed task is counted under Completed instead.
   const counts = new Map<string | null, number>();
+  let openCount = 0;
+  let doneCount = 0;
   for (const task of tasks)
-    counts.set(task.category_id, (counts.get(task.category_id) ?? 0) + 1);
+    if (task.completed) doneCount++;
+    else {
+      openCount++;
+      counts.set(task.category_id, (counts.get(task.category_id) ?? 0) + 1);
+    }
 
-  // Changes only ?category, so an open task or a view in the URL stays.
+  // Changes only ?category (and leaves the Completed page), so an open task or a view stays.
   const filterTo = (id: string | null) => {
     const next = new URLSearchParams(params);
+    next.delete("list");
     if (id) next.set("category", id);
     else next.delete("category");
+    return { search: next.toString() };
+  };
+  const completedPage = () => {
+    const next = new URLSearchParams(params);
+    next.delete("category");
+    next.set("list", "completed");
     return { search: next.toString() };
   };
 
@@ -56,9 +80,11 @@ export function CategorySidebar({ tasks, categories, selected }: Props) {
         <li>
           <Link
             to={filterTo(null)}
-            aria-current={selected === null ? "page" : undefined}
+            aria-current={
+              selected === null && !showingCompleted ? "page" : undefined
+            }
           >
-            <span>All</span> <span className="count">{tasks.length}</span>
+            <span>All</span> <span className="count">{openCount}</span>
           </Link>
         </li>
         {categories.map((category) => (
@@ -76,6 +102,14 @@ export function CategorySidebar({ tasks, categories, selected }: Props) {
             )}
           </li>
         ))}
+        <li className="completed-entry">
+          <Link
+            to={completedPage()}
+            aria-current={showingCompleted ? "page" : undefined}
+          >
+            <span>Completed</span> <span className="count">{doneCount}</span>
+          </Link>
+        </li>
       </ul>
       {!editing && (
         <form className="add" onSubmit={add}>

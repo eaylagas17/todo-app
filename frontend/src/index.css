@@ -355,6 +355,19 @@ label {
   }
 }
 
+/* Completed sits under the categories, set apart by a hairline (spec §5.7). */
+.completed-entry {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--sep);
+}
+
+.added {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--sub);
+}
+
 .recent h2 {
   margin: 1.5rem 0.25rem 0.5rem;
   font-size: 0.8rem;

@@ -8,14 +8,14 @@ type Feature = { title: string; what: string; how: string; to: string };
 export const FEATURES: Feature[] = [
   {
     title: "Linked tasks",
-    what: "Say one task waits for another. Linked tasks share a colour and show their step: 1, 2, 3.",
+    what: "Say one task waits for another. Linked tasks share a colour and show their step: 1, 2, 3. An arrow follows your finger while you link.",
     how: "Drag the dot on a task's right edge onto the task it waits for, or use “Waits for” in its panel.",
     to: "/tasks",
   },
   {
     title: "The chain pull",
-    what: "A task never sits above what it waits for: drag one, and the tasks linked to it move along.",
-    how: "With the example loaded, drag “Book the venue” below “Send invitations”.",
+    what: "A task never sits above what it waits for: drag one, and the linked tasks it reaches join it and travel along, like a snowball.",
+    how: "With the example loaded, drag “Book the venue” down to the bottom.",
     to: "/tasks",
   },
   {
@@ -47,6 +47,12 @@ export const FEATURES: Feature[] = [
     what: "Drag a task's handle, or use the keyboard: Space, the arrow keys, Space.",
     how: "Dragging pauses while you search or filter: positions only make sense in the full list.",
     to: "/tasks",
+  },
+  {
+    title: "Completed tasks",
+    what: "Ticked tasks wait five seconds so you can undo, then move to Recently completed. Everything done lives under Completed.",
+    how: "Tick a task and watch the bar, then untick it from Recently completed or Completed.",
+    to: "/tasks?list=completed",
   },
   {
     title: "Side panel and full page",

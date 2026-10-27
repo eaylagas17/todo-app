@@ -10,7 +10,7 @@ import {
   useToggleTask,
   useUpdateTask,
 } from "../queries.ts";
-import { subtaskProgress } from "../tasks.ts";
+import { formatDate, subtaskProgress } from "../tasks.ts";
 import { useLinger } from "../useLinger.tsx";
 import { TaskLinks } from "./TaskLinks.tsx";
 
@@ -117,6 +117,7 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
           />
           Done
         </label>
+        <p className="added">Added {formatDate(task.created_at)}</p>
         {error && <p role="alert">{error.message}</p>}
         <div className="actions">
           <button

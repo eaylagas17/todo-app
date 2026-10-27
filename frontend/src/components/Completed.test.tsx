@@ -257,6 +257,7 @@ it("lists every completed task newest first on the Completed page", async () => 
   expect(
     await screen.findByRole("heading", { name: "Completed" }),
   ).toBeInTheDocument();
+  await checkbox("Buy milk");
   expect(titlesIn("Completed")).toEqual([
     "Buy milk",
     "Order the cake",
