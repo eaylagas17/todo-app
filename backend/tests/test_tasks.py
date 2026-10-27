@@ -15,15 +15,8 @@ def test_create_task_returns_it_with_location(client, ada):
         "position": 1,
         "subtasks": [],
         "category_id": None,
-        "waits_for": [],
     }
     assert response.headers["location"] == f"/api/tasks/{task['id']}"
-
-
-def test_task_ids_grow_with_creation_time(client, ada):
-    # UUIDv7: the smallest id in a group of linked tasks is its oldest task (Extras 5).
-    ids = [add_task(client, ada, title)["id"] for title in "abcde"]
-    assert ids == sorted(ids)
 
 
 def test_new_tasks_go_to_the_end(client, ada):
@@ -131,6 +124,13 @@ def test_an_empty_patch_changes_nothing(client, ada):
     assert client.patch(f"/api/tasks/{task['id']}", json={}, headers=ada).json() == task
 
 
+def test_patch_position_reorders_the_list(client, ada):
+    _, _, third = (add_task(client, ada, d) for d in ("a", "b", "c"))
+    client.patch(f"/api/tasks/{third['id']}", json={"position": 1.5}, headers=ada)
+    tasks = client.get("/api/tasks", headers=ada).json()
+    assert [t["title"] for t in tasks] == ["a", "c", "b"]
+
+
 @pytest.mark.parametrize(
     ("payload", "field", "message"),
     [
@@ -144,6 +144,17 @@ def test_patch_rejects_invalid_changes(client, ada, payload, field, message):
     response = client.patch(f"/api/tasks/{task['id']}", json=payload, headers=ada)
     assert response.status_code == 400
     assert response.json()["error"]["fields"] == {field: message}
+
+
+def test_patch_rejects_an_infinite_position(client, ada):
+    task = add_task(client, ada, "Buy milk")
+    response = client.patch(
+        f"/api/tasks/{task['id']}",
+        content='{"position": Infinity}',
+        headers={**ada, "Content-Type": "application/json"},
+    )
+    assert response.status_code == 400
+    assert list(response.json()["error"]["fields"]) == ["position"]
 
 
 def test_task_text_is_stored_literally(client, ada):

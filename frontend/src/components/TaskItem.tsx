@@ -1,74 +1,29 @@
-import { type CSSProperties, type ReactNode, type Ref, useState } from "react";
+import type { CSSProperties, ReactNode, Ref } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
-import {
-  useCategories,
-  useDeleteTask,
-  useLink,
-  useToggleTask,
-} from "../queries.ts";
-import { type LinkInfo, subtaskProgress } from "../tasks.ts";
-import { useLinkDrag } from "../useLinkDrag.ts";
+import { useCategories, useDeleteTask, useToggleTask } from "../queries.ts";
+import { subtaskProgress } from "../tasks.ts";
 
 type Props = {
   task: Task;
-  link?: LinkInfo;
   handle?: ReactNode;
   ref?: Ref<HTMLLIElement>;
   style?: CSSProperties;
 };
 
-export function TaskItem({ task, link, handle, ref, style }: Props) {
+export function TaskItem({ task, handle, ref, style }: Props) {
   const toggle = useToggleTask();
   const remove = useDeleteTask();
-  const linkTo = useLink();
-  const { dotProps } = useLinkDrag((fromId, toId) =>
-    linkTo.mutate({ taskId: fromId, dependsOnId: toId }),
-  );
-  // Accent C: one pulse when the task turns from waiting to ready, never on first render.
-  const waiting = link?.waiting ?? false;
-  const [wasWaiting, setWasWaiting] = useState(waiting);
-  const [pulse, setPulse] = useState(false);
-  if (waiting !== wasWaiting) {
-    setWasWaiting(waiting);
-    setPulse(wasWaiting && !waiting);
-  }
   const [params] = useSearchParams();
   // Opening a task changes only ?task, so a filter or a view in the URL stays as it is.
   const panel = new URLSearchParams(params);
   panel.set("task", task.id);
-  const preview = link?.waitsFor.length
-    ? `Waits for: ${link.waitsFor.join(", ")}`
-    : task.description.split("\n")[0];
+  const preview = task.description.split("\n")[0];
   const progress = subtaskProgress(task);
   const category = useCategories().data?.find((c) => c.id === task.category_id);
   return (
-    <li
-      className="task"
-      ref={ref}
-      data-task-id={task.id}
-      style={
-        {
-          ...style,
-          // Accent B: the browser matches each row before and after a reorder by this name.
-          viewTransitionName: `task-${task.id}`,
-          "--hue": link?.hue,
-        } as CSSProperties
-      }
-    >
+    <li className="task" ref={ref} style={style}>
       {handle}
-      {link ? (
-        <span
-          role="img"
-          aria-label={`Step ${link.step}, ${waiting ? "waiting" : "ready"}`}
-          className={pulse ? "step pulse" : "step"}
-          onAnimationEnd={() => setPulse(false)}
-        >
-          {link.step}
-        </span>
-      ) : (
-        <span className="step" />
-      )}
       <label className="tap">
         <input
           type="checkbox"
@@ -85,21 +40,14 @@ export function TaskItem({ task, link, handle, ref, style }: Props) {
         aria-current={params.get("task") === task.id ? "true" : undefined}
       >
         <span className="title">{task.title}</span>
-        {(preview || progress || link) && (
+        {(preview || progress) && (
           <span className="sub">
-            {link && <span className="chain" aria-hidden="true" />}
             {preview && <span className="preview">{preview}</span>}
             {progress && <span className="progress">{progress}</span>}
           </span>
         )}
         {category && <span className="category">{category.name}</span>}
       </Link>
-      <button
-        type="button"
-        className="dot"
-        aria-label={`Link ${task.title} to another task`}
-        {...dotProps(task.id)}
-      />
       <button
         type="button"
         className="delete"

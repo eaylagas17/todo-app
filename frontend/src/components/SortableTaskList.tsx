@@ -15,14 +15,12 @@ import {
   verticalListSortingStrategy,
 } from "@dnd-kit/sortable";
 import type { Task } from "../api.ts";
-import { useReorder } from "../queries.ts";
-import { type LinkInfo, moveWithLinks } from "../tasks.ts";
+import { useMoveTask } from "../queries.ts";
+import { moveTask } from "../tasks.ts";
 import { TaskItem } from "./TaskItem.tsx";
 
-type Props = { tasks: Task[]; links: Map<string, LinkInfo> };
-
-export function SortableTaskList({ tasks, links }: Props) {
-  const reorder = useReorder();
+export function SortableTaskList({ tasks }: { tasks: Task[] }) {
+  const move = useMoveTask();
   const sensors = useSensors(
     // A 5px movement before a drag starts, so a click or a tap on the handle stays a click.
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -34,11 +32,9 @@ export function SortableTaskList({ tasks, links }: Props) {
   const name = (id: UniqueIdentifier) =>
     tasks.find((task) => task.id === id)?.title;
 
-  // The drop becomes the whole new order, with linked tasks pulled or pushed along.
   function drop({ active, over }: DragEndEvent) {
-    const order =
-      over && moveWithLinks(tasks, String(active.id), String(over.id));
-    if (order) reorder.mutate(order);
+    const change = over && moveTask(tasks, String(active.id), String(over.id));
+    if (change) move.mutate(change);
   }
 
   return (
@@ -65,7 +61,7 @@ export function SortableTaskList({ tasks, links }: Props) {
       <SortableContext items={tasks} strategy={verticalListSortingStrategy}>
         <ul className="tasks" aria-label="Tasks">
           {tasks.map((task) => (
-            <SortableRow key={task.id} task={task} link={links.get(task.id)} />
+            <SortableRow key={task.id} task={task} />
           ))}
         </ul>
       </SortableContext>
@@ -73,7 +69,7 @@ export function SortableTaskList({ tasks, links }: Props) {
   );
 }
 
-function SortableRow({ task, link }: { task: Task; link?: LinkInfo }) {
+function SortableRow({ task }: { task: Task }) {
   const {
     attributes,
     listeners,
@@ -89,7 +85,6 @@ function SortableRow({ task, link }: { task: Task; link?: LinkInfo }) {
   return (
     <TaskItem
       task={task}
-      link={link}
       ref={setNodeRef}
       style={{ transform: offset, transition }}
       handle={

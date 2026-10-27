@@ -76,10 +76,6 @@ export function SignInPage() {
           </button>
         </div>
       </form>
-      <p className="credit">
-        Chain icon from{" "}
-        <a href="https://www.flaticon.com/free-icon/url_3214746">Flaticon</a>
-      </p>
     </main>
   );
 }

@@ -4,8 +4,6 @@ WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
 COPY frontend/ ./
-# The repair test table, shared with the backend's tests: the type check reads it too.
-COPY shared/ /shared/
 RUN npm run build
 
 # Stage 2: install the Python dependencies. uv exists only in this stage.

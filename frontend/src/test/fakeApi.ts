@@ -1,7 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { AuthResult, Category, Subtask, Task } from "../api.ts";
-import { repair } from "../tasks.ts";
 
 type Account = { id: string; email: string; password: string };
 type Credentials = { email: string; password: string };
@@ -71,7 +70,6 @@ function addTask(ownerId: string, title: string, description = ""): Task {
     position: top + 1,
     subtasks: [],
     category_id: null,
-    waits_for: [],
   };
   db.tasks.set(task.id, { ownerId, task });
   return { ...task };
@@ -150,35 +148,6 @@ function ownSubtask(request: Request, params: Record<string, unknown>) {
     return { error: fail(404, "SUBTASK_NOT_FOUND", "Subtask not found") };
   return { task, subtask };
 }
-
-/** True if any task sits above a task it waits for. */
-function breaksLink(
-  order: string[],
-  waitsFor: Record<string, string[]>,
-): boolean {
-  const index = new Map(order.map((id, i) => [id, i]));
-  return order.some((id) =>
-    (waitsFor[id] ?? []).some(
-      (p) => index.has(p) && index.get(p)! > index.get(id)!,
-    ),
-  );
-}
-
-// The caller's list in order, and its links, for the link and order routes.
-function ownList(ownerId: string) {
-  const tasks = tasksOf(ownerId)
-    .map(({ task }) => task)
-    .sort((a, b) => a.position - b.position);
-  const waitsFor = Object.fromEntries(tasks.map((t) => [t.id, t.waits_for]));
-  return { tasks, order: tasks.map((t) => t.id), waitsFor };
-}
-
-function renumber(tasks: Task[], order: string[]) {
-  for (const task of tasks) task.position = order.indexOf(task.id) + 1;
-}
-
-const listOf = (ownerId: string) =>
-  ownList(ownerId).tasks.map((task) => ({ ...task }));
 
 export const server = setupServer(
   http.post("/api/users", async ({ request }) => {
@@ -266,70 +235,6 @@ export const server = setupServer(
     task.subtasks = task.subtasks.filter((s) => s !== subtask);
     return new HttpResponse(null, { status: 204 });
   }),
-  // Mirrors crud.link: self 400, someone else's 404, a loop 409, repairs the order "down".
-  http.post("/api/tasks/:id/links", async ({ request, params }) => {
-    const body = (await request.json()) as { depends_on_id: string };
-    record(request, body);
-    const { task, error } = ownTask(request, String(params.id));
-    if (error) return error;
-    if (body.depends_on_id === task.id)
-      return fail(400, "LINK_SELF", "A task can't wait for itself");
-    const target = ownTask(request, body.depends_on_id);
-    if (target.error) return target.error;
-    const ownerId = signedInUser(request)!;
-    const { tasks, order, waitsFor } = ownList(ownerId);
-    if (!task.waits_for.includes(body.depends_on_id)) {
-      const linked = {
-        ...waitsFor,
-        [task.id]: [...task.waits_for, body.depends_on_id],
-      };
-      const desired = order.filter((id) => id !== task.id);
-      desired.splice(desired.indexOf(body.depends_on_id) + 1, 0, task.id);
-      let repaired: string[];
-      try {
-        repaired = breaksLink(order, linked)
-          ? repair(desired, linked, "down")
-          : order;
-      } catch {
-        return fail(409, "LINK_CYCLE", "That would make a loop");
-      }
-      task.waits_for.push(body.depends_on_id);
-      renumber(tasks, repaired);
-    }
-    return HttpResponse.json(listOf(ownerId), { status: 201 });
-  }),
-  http.delete("/api/tasks/:id/links/:dependsOnId", ({ request, params }) => {
-    record(request);
-    const { task, error } = ownTask(request, String(params.id));
-    if (error) return error;
-    task.waits_for = task.waits_for.filter((id) => id !== params.dependsOnId);
-    return new HttpResponse(null, { status: 204 });
-  }),
-  // Mirrors crud.set_order: exactly the caller's tasks, in an order that keeps every link.
-  http.put("/api/task-order", async ({ request }) => {
-    const { ids } = (await request.json()) as { ids: string[] };
-    record(request, { ids });
-    const ownerId = signedInUser(request);
-    if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
-    const { tasks, order, waitsFor } = ownList(ownerId);
-    if (
-      ids.length !== new Set(ids).size ||
-      [...ids].sort().join() !== [...order].sort().join()
-    )
-      return fail(
-        409,
-        "ORDER_STALE",
-        "Your list changed elsewhere. Refresh and try again.",
-      );
-    if (breaksLink(ids, waitsFor))
-      return fail(
-        409,
-        "ORDER_BREAKS_LINK",
-        "A task can't move above a task it waits for.",
-      );
-    renumber(tasks, ids);
-    return HttpResponse.json(listOf(ownerId));
-  }),
   // Without a TYPESAFE_API_KEY the real server answers this; tests that want a category say so.
   http.post("/api/tasks/:id/category-suggestion", ({ request }) => {
     record(request);
@@ -385,9 +290,6 @@ export const server = setupServer(
     const { error } = ownTask(request, String(params.id));
     if (error) return error;
     db.tasks.delete(String(params.id));
-    // Its links go too, both ways (E45).
-    for (const { task } of db.tasks.values())
-      task.waits_for = task.waits_for.filter((id) => id !== params.id);
     return new HttpResponse(null, { status: 204 });
   }),
 );

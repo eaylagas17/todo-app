@@ -1,6 +1,5 @@
 import secrets
 import uuid
-from collections import defaultdict
 from datetime import timedelta
 
 from sqlalchemy import func, select, update
@@ -14,15 +13,10 @@ from app.errors import (
     EmailTaken,
     InvalidCredentials,
     InvalidField,
-    LinkCycle,
-    LinkSelf,
-    OrderBreaksLink,
-    OrderStale,
     SubtaskNotFound,
     TaskNotFound,
 )
-from app.graph import breaks_link, find_path, repair
-from app.models import Category, Subtask, Task, TaskLink, User, UserSession
+from app.models import Category, Subtask, Task, User, UserSession
 from app.security import hash_token, hasher, verify_password
 
 SESSION_LIFETIME = timedelta(days=7)
@@ -72,7 +66,7 @@ def list_tasks(db: Session, owner: User) -> list[Task]:
         .where(Task.owner_id == owner.id)
         .order_by(Task.position, Task.created_at)
         # All the subtasks in one more query (WHERE task_id IN ...), never one query per task.
-        .options(selectinload(Task.subtasks), selectinload(Task.links))
+        .options(selectinload(Task.subtasks))
     )
     return list(db.scalars(query))
 
@@ -139,70 +133,6 @@ def update_subtask(db: Session, subtask: Subtask, changes: dict) -> Subtask:
     return subtask
 
 
-def owner_graph(db: Session, owner: User) -> dict[uuid.UUID, list[uuid.UUID]]:
-    """Every link of one user as an adjacency list, task → what it waits for. One query."""
-    rows = db.execute(
-        select(TaskLink.task_id, TaskLink.depends_on_id)
-        .join(Task, Task.id == TaskLink.task_id)
-        .where(Task.owner_id == owner.id)
-    )
-    graph: dict[uuid.UUID, list[uuid.UUID]] = defaultdict(list)
-    for task_id, depends_on_id in rows:
-        graph[task_id].append(depends_on_id)
-    return graph
-
-
-def _renumber(tasks: list[Task], order: list[uuid.UUID]) -> None:
-    by_id = {task.id: task for task in tasks}
-    for position, task_id in enumerate(order, start=1):
-        by_id[task_id].position = position
-
-
-def link(db: Session, owner: User, task: Task, depends_on_id: uuid.UUID) -> list[Task]:
-    """ "task waits for depends_on_id". Returns the whole list, in its (possibly repaired) order."""
-    if depends_on_id == task.id:
-        raise LinkSelf
-    target = get_task(db, owner, depends_on_id)  # someone else's task is 404
-    graph = owner_graph(db, owner)
-    if target.id in graph[task.id]:
-        return list_tasks(db, owner)  # already linked: nothing to do
-    # A loop would form if the target already waits, step by step, for this task.
-    if path := find_path(graph, target.id, task.id):
-        rows = db.execute(select(Task.id, Task.title).where(Task.id.in_(path)))
-        titles = {task_id: title for task_id, title in rows}
-        raise LinkCycle([task.title, *(titles[i] for i in path)])
-    db.add(TaskLink(task_id=task.id, depends_on_id=target.id))
-    graph[task.id].append(target.id)
-    tasks = list_tasks(db, owner)
-    order = [t.id for t in tasks]
-    if breaks_link(order, graph):
-        # The task linked to stays put; the waiting task goes just below it, and anything
-        # waiting on it is pushed along by the "down" pass (spec §8.3).
-        desired = [i for i in order if i != task.id]
-        desired.insert(desired.index(target.id) + 1, task.id)
-        _renumber(tasks, repair(desired, graph, "down"))
-    db.commit()
-    return list_tasks(db, owner)
-
-
-def unlink(db: Session, task: Task, depends_on_id: uuid.UUID) -> None:
-    existing = db.get(TaskLink, (task.id, depends_on_id))
-    if existing is not None:  # unlinking twice is fine
-        delete(db, existing)
-
-
-def set_order(db: Session, owner: User, ids: list[uuid.UUID]) -> list[Task]:
-    """Saves the whole list's order. Checks it; never re-sorts it."""
-    tasks = list_tasks(db, owner)
-    if len(ids) != len(set(ids)) or set(ids) != {task.id for task in tasks}:
-        raise OrderStale  # a task missing, extra, repeated or someone else's (E43)
-    if breaks_link(ids, owner_graph(db, owner)):
-        raise OrderBreaksLink  # (E44)
-    _renumber(tasks, ids)
-    db.commit()
-    return list_tasks(db, owner)
-
-
 def list_categories(db: Session, owner: User) -> list[Category]:
     query = (
         select(Category)
@@ -252,8 +182,6 @@ def delete_category(db: Session, category: Category) -> None:
     delete(db, category)
 
 
-def delete(
-    db: Session, row: Task | Subtask | Category | TaskLink | UserSession
-) -> None:
+def delete(db: Session, row: Task | Subtask | Category | UserSession) -> None:
     db.delete(row)
     db.commit()

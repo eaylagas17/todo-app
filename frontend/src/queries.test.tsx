@@ -9,12 +9,12 @@ import {
   taskKey,
   useCreateTask,
   useDeleteTask,
-  useReorder,
+  useMoveTask,
   useTasks,
   useToggleTask,
   useUpdateTask,
 } from "./queries.ts";
-import { moveWithLinks } from "./tasks.ts";
+import { moveTask } from "./tasks.ts";
 import {
   db,
   gate,
@@ -95,20 +95,20 @@ it("restores a deleted task when deletion fails", async () => {
 });
 
 it("saves a move on the server", async () => {
-  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  const [, , c] = seedTasks(ada, ["a", "b", "c"]);
   const { result } = renderHookWithClient(() => ({
     list: useTasks(),
-    move: useReorder(),
+    move: useMoveTask(),
   }));
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
-  act(() => result.current.move.mutate([a.id, c.id, b.id]));
+  act(() => result.current.move.mutate({ id: c.id, position: 1.5 }));
   await waitFor(() =>
     expect(titles(result.current.list.data)).toEqual(["a", "c", "b"]),
   );
   expect(requests).toContainEqual({
-    method: "PUT",
-    path: "/api/task-order",
-    body: { ids: [a.id, c.id, b.id] },
+    method: "PATCH",
+    path: `/api/tasks/${c.id}`,
+    body: { position: 1.5 },
   });
 });
 
@@ -116,24 +116,24 @@ it("applies two quick moves in a row", async () => {
   const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
   const { wait, release } = gate();
   server.use(
-    http.put("/api/task-order", async () => {
+    http.patch("/api/tasks/:id", async () => {
       await wait;
     }),
   );
   const { result } = renderHookWithClient(() => ({
     list: useTasks(),
-    move: useReorder(),
+    move: useMoveTask(),
   }));
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
   act(() =>
     result.current.move.mutate(
-      moveWithLinks(result.current.list.data!, c.id, a.id)!,
+      moveTask(result.current.list.data!, c.id, a.id)!,
     ),
   );
   await waitFor(() => expect(result.current.list.data?.[0].title).toBe("c"));
   act(() =>
     result.current.move.mutate(
-      moveWithLinks(result.current.list.data!, b.id, c.id)!,
+      moveTask(result.current.list.data!, b.id, c.id)!,
     ),
   );
   await waitFor(() =>

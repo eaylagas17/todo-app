@@ -2,7 +2,7 @@ import uuid
 from typing import Annotated
 
 from email_validator import EmailNotValidError, validate_email
-from pydantic import AfterValidator, BaseModel, ConfigDict, StringConstraints
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, StringConstraints
 
 
 def normalize_email(value: str) -> str:
@@ -23,6 +23,7 @@ Body = Annotated[str, StringConstraints(max_length=2000)]
 CategoryName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
 ]
+Position = Annotated[float, Field(allow_inf_nan=False)]
 
 
 class Input(BaseModel):
@@ -59,6 +60,7 @@ class TaskUpdate(Input):
     title: Title = None
     description: Body = None
     completed: bool = None
+    position: Position = None
     # The one field where an explicit null is allowed: it clears the category.
     category_id: uuid.UUID | None = None
 
@@ -86,17 +88,6 @@ class TaskOut(Output):
     position: float
     subtasks: list[SubtaskOut]
     category_id: uuid.UUID | None
-    waits_for: list[uuid.UUID]
-
-
-class LinkIn(Input):
-    depends_on_id: uuid.UUID
-
-
-class OrderIn(Input):
-    """The signed-in user's whole list, top to bottom."""
-
-    ids: list[uuid.UUID]
 
 
 class CategoryIn(Input):

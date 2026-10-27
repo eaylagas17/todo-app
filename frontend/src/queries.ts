@@ -15,22 +15,18 @@ import {
   deleteSubtask,
   deleteTask,
   getTask,
-  linkTasks,
   listCategories,
   listTasks,
   NetworkError,
   renameCategory,
-  saveOrder,
   type Subtask,
   suggestCategory,
   type Task,
   type TaskChanges,
-  unlinkTasks,
   updateSubtask,
   updateTask,
 } from "./api.ts";
 import { getAuth } from "./auth.ts";
-import { withTransition } from "./motion.ts";
 import { byPosition } from "./tasks.ts";
 
 // Retry only what might succeed a moment later: a server error or a dropped connection.
@@ -169,7 +165,6 @@ export function useSuggestCategory() {
 export function useOptimisticTaskMutation<V>(
   send: (variables: V) => Promise<unknown>,
   apply: (tasks: Task[], variables: V) => Task[],
-  { animate = false } = {},
 ) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -182,13 +177,10 @@ export function useOptimisticTaskMutation<V>(
       // A refetch already on its way would land after our change and overwrite it.
       await queryClient.cancelQueries({ queryKey: TASKS_KEY });
       const snapshot = queryClient.getQueryData<Task[]>(TASKS_KEY);
-      const write = () =>
-        queryClient.setQueryData<Task[]>(
-          TASKS_KEY,
-          (tasks) => tasks && apply(tasks, variables),
-        );
-      if (animate) withTransition(write);
-      else write();
+      queryClient.setQueryData<Task[]>(
+        TASKS_KEY,
+        (tasks) => tasks && apply(tasks, variables),
+      );
       return { ...startSession(), snapshot };
     },
     onError: (_error, _variables, saved) => {
@@ -212,46 +204,11 @@ export const useToggleTask = () =>
     (tasks, { id, completed }) => withChanges(tasks, id, { completed }),
   );
 
-/** Saves the whole order after a drag; the rows glide into place where the browser can. */
-export const useReorder = () =>
+export const useMoveTask = () =>
   useOptimisticTaskMutation(
-    (ids: string[]) => saveOrder(ids),
-    (tasks, ids) => {
-      const position = new Map(ids.map((id, i) => [id, i + 1]));
-      return tasks.map((t) => ({ ...t, position: position.get(t.id) ?? 0 }));
-    },
-    { animate: true },
-  );
-
-type LinkRef = { taskId: string; dependsOnId: string };
-
-/**
- * Not optimistic: the server may repair the order around the new link, so its answer (the
- * whole list) replaces the cache. In the task queue, so it never overtakes a pending drag.
- */
-export function useLink() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationKey: TASKS_KEY,
-    scope: { id: "tasks" },
-    mutationFn: ({ taskId, dependsOnId }: LinkRef) =>
-      linkTasks(taskId, dependsOnId),
-    onMutate: startSession,
-    onSuccess: (tasks, _link, started) => {
-      if (stillCurrent(started)) queryClient.setQueryData(TASKS_KEY, tasks);
-    },
-  });
-}
-
-export const useUnlink = () =>
-  useOptimisticTaskMutation(
-    ({ taskId, dependsOnId }: LinkRef) => unlinkTasks(taskId, dependsOnId),
-    (tasks, { taskId, dependsOnId }) =>
-      tasks.map((t) =>
-        t.id === taskId
-          ? { ...t, waits_for: t.waits_for.filter((id) => id !== dependsOnId) }
-          : t,
-      ),
+    ({ id, position }: { id: string; position: number }) =>
+      updateTask(id, { position }),
+    (tasks, { id, position }) => withChanges(tasks, id, { position }),
   );
 
 export function useDeleteTask() {

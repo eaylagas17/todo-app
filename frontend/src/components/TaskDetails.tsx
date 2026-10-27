@@ -11,7 +11,6 @@ import {
   useUpdateTask,
 } from "../queries.ts";
 import { subtaskProgress } from "../tasks.ts";
-import { TaskLinks } from "./TaskLinks.tsx";
 
 type Props = {
   task: Task;
@@ -124,7 +123,6 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
         </div>
       </form>
       <Checklist task={task} />
-      <TaskLinks task={task} />
       <button type="button" className="danger" onClick={deleteTask}>
         Delete task
       </button>

@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Index, String, Text, func
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, utcnow
@@ -34,8 +34,7 @@ class Task(Base):
     # A user's list in order is one range scan of this index, and so is MAX(position).
     __table_args__ = (Index("ix_tasks_owner_position", "owner_id", "position"),)
 
-    # UUIDv7: ids grow with creation time, so the smallest id in a group is its oldest task.
-    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid7)
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
     owner_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
@@ -52,35 +51,6 @@ class Task(Base):
     # Deleting a task deletes its subtasks: the ORM does it, so SQLite needs no foreign-key pragma.
     subtasks: Mapped[list[Subtask]] = relationship(
         order_by="Subtask.created_at", cascade="all, delete-orphan"
-    )
-    # A task's links in both directions. Deleting the task deletes both kinds, so no link is
-    # ever left pointing at a task that's gone (E45), on SQLite as on Postgres.
-    links: Mapped[list[TaskLink]] = relationship(
-        foreign_keys="TaskLink.task_id", cascade="all, delete-orphan"
-    )
-    needed_by_links: Mapped[list[TaskLink]] = relationship(
-        foreign_keys="TaskLink.depends_on_id", cascade="all, delete-orphan"
-    )
-
-    @property
-    def waits_for(self) -> list[uuid.UUID]:
-        return [link.depends_on_id for link in self.links]
-
-
-class TaskLink(Base):
-    """One edge: task_id waits for depends_on_id. The primary key makes each pair unique."""
-
-    __tablename__ = "task_links"
-    __table_args__ = (
-        CheckConstraint("task_id <> depends_on_id", name="ck_task_links_not_self"),
-    )
-
-    task_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True
-    )
-    # Its own index: "who waits for this task?" is a lookup by depends_on_id.
-    depends_on_id: Mapped[uuid.UUID] = mapped_column(
-        ForeignKey("tasks.id", ondelete="CASCADE"), primary_key=True, index=True
     )
 
 
