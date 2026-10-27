@@ -74,29 +74,32 @@ flowchart LR
 
 ### With more time
 
+Estimates are for me working with an AI assistant, the way this project was built (see [AI assistance](#ai-assistance)). The assistant writes most of the code; my time goes into deciding what to build, reviewing every change, testing it in a real browser, and making sure I can explain it.
+
 | Feature | Estimate |
 |---|---|
-| Due dates and reminders (reminders need a background worker) | 1 day |
-| Filters (all / active / done), with the search kept in the URL | 1.5 h |
-| Undo after deleting | 1 h |
-| Shared to-dos: a shared task keeps its creator's category; each person orders it in their own list; a link is visible only to its maker unless both tasks are shared | 1.5 days |
-| Kubernetes on AKS (Container Apps already runs on Kubernetes; AKS pays off with many services or a service mesh) | 1 day |
-| Monitoring: Prometheus and Grafana, plus tracing | 1 day |
-| Real-time sync between tabs and devices | 1 day |
-| Password reset and email confirmation | 1 day |
+| Due dates and reminders (reminders need a background worker) | 4 h |
+| Search kept in the URL, so a filtered view survives a reload and can be shared | 30 min |
+| Undo after deleting (the same 5-second window that completing uses) | 45 min |
+| Shared to-dos: a shared task keeps its creator's category; each person orders it in their own list; a link is visible only to its maker unless both tasks are shared | 1 day |
+| Kubernetes on AKS (Container Apps already runs on Kubernetes; AKS pays off with many services or a service mesh) | 4 h |
+| Monitoring: Prometheus and Grafana, plus tracing | 4 h |
+| Real-time sync between tabs and devices | 4 h |
+| Password reset and email confirmation | 3 h |
+| Browser tests in CI: Playwright checks of layout and flows (rows that shift when filtering, the drag, the undo window) and an accessibility scan; screenshot comparisons later. Today's tests run in jsdom, which can't see layout | 3 h |
 
 ### To make it more robust
 
 | Change | Why | Estimate |
 |---|---|---|
-| Version column with `If-Match` → 412 | Two devices editing one task: today the last save wins | 2 h |
-| Alembic migrations as a deploy step | Now urgent: the cloud database is live, and `create_all` can't change existing tables | 2 h |
-| Azure Container Registry with a managed identity | Pull the image without a public registry | 1 h |
-| VNet integration for the database | Today it accepts connections from Azure services | 2 h |
-| Rate limiting on sign-in | Password guessing; Argon2 is memory-heavy under a flood | 2 h |
-| httpOnly cookie sessions, CSRF protection, a Content Security Policy | Keeps tokens out of JavaScript's reach | 3 h |
-| Keyset pagination | Lists of thousands of tasks | 2 h |
-| Structured logs with request ids | Tracing a request across many copies | 1 h |
+| Version column with `If-Match` → 412 | Two devices editing one task: today the last save wins | 1 h |
+| Alembic migrations as a deploy step | Now urgent: the cloud database is live, and `create_all` can't change existing tables | 1 h |
+| Azure Container Registry with a managed identity | Pull the image without a public registry | 30 min |
+| VNet integration for the database | Today it accepts connections from Azure services | 1 h |
+| Rate limiting on sign-up, sign-in and AI calls | Password guessing (Argon2 is memory-heavy under a flood), and many new accounts draining the shared AI budget | 1 h |
+| httpOnly cookie sessions, CSRF protection, a Content Security Policy | Keeps tokens out of JavaScript's reach | 2 h |
+| Keyset pagination | Lists of thousands of tasks | 1 h |
+| Structured logs with request ids | Tracing a request across many copies | 30 min |
 
 ## API
 
