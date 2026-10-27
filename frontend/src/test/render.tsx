@@ -2,12 +2,27 @@ import { QueryClientProvider } from "@tanstack/react-query";
 import { render, renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
-import { MemoryRouter } from "react-router";
+import { MemoryRouter, useLocation, useNavigate } from "react-router";
 import type { AuthResult } from "../api.ts";
 import App from "../App.tsx";
 import { saveAuth } from "../auth.ts";
 import { ErrorBoundary } from "../ErrorBoundary.tsx";
 import { createQueryClient } from "../queries.ts";
+
+/** Shows the current URL, and goes back a step the way the browser's back button would. */
+function LocationProbe() {
+  const location = useLocation();
+  const navigate = useNavigate();
+  return (
+    <>
+      {/* A span, not <output>: output has the role "status", which the Saved message uses. */}
+      <span data-testid="location">{location.pathname + location.search}</span>
+      <button type="button" onClick={() => navigate(-1)}>
+        Browser back
+      </button>
+    </>
+  );
+}
 
 // The whole app at one URL, as `as` if given, with a fresh cache that never retries,
 // so a failing request fails the test at once.
@@ -20,6 +35,7 @@ export function renderApp(path: string, { as }: { as?: AuthResult } = {}) {
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={[path]}>
           <App />
+          <LocationProbe />
         </MemoryRouter>
       </QueryClientProvider>
     </ErrorBoundary>,

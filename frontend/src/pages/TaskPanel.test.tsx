@@ -1,0 +1,80 @@
+import { screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, it, vi } from "vitest";
+import type { AuthResult, Task } from "../api.ts";
+import { db, seedTasks, seedUser } from "../test/fakeApi.ts";
+import { renderApp } from "../test/render.tsx";
+
+let ada: AuthResult;
+let venue: Task;
+
+beforeEach(() => {
+  ada = seedUser();
+  [venue] = seedTasks(ada, ["Book the venue", "Order the cake"]);
+});
+
+const panel = () =>
+  screen.queryByRole("complementary", { name: "Task details" });
+const openVenue = async (user: ReturnType<typeof renderApp>["user"]) =>
+  user.click(await screen.findByRole("link", { name: "Book the venue" }));
+
+it("opens a task in the side panel", async () => {
+  const { user } = renderApp("/tasks", { as: ada });
+  await openVenue(user);
+  expect(within(panel()!).getByLabelText("Title")).toHaveValue(
+    "Book the venue",
+  );
+  expect(screen.getByTestId("location")).toHaveTextContent(
+    `/tasks?task=${venue.id}`,
+  );
+});
+
+it("closes the panel with Close, Escape and the back button", async () => {
+  const { user } = renderApp("/tasks", { as: ada });
+  await openVenue(user);
+  await user.click(within(panel()!).getByRole("button", { name: "Close" }));
+  expect(panel()).toBeNull();
+
+  await openVenue(user);
+  await user.keyboard("{Escape}");
+  expect(panel()).toBeNull();
+
+  await openVenue(user);
+  await user.click(screen.getByRole("button", { name: "Browser back" }));
+  expect(panel()).toBeNull();
+  expect(screen.getByTestId("location")).toHaveTextContent(/^\/tasks$/);
+});
+
+it("opens the full page from the panel", async () => {
+  const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
+  await user.click(await screen.findByRole("link", { name: "Open as page" }));
+  expect(
+    await screen.findByRole("heading", { name: "Task details" }),
+  ).toBeInTheDocument();
+  expect(screen.getByTestId("location")).toHaveTextContent(
+    `/tasks/${venue.id}`,
+  );
+});
+
+it("a link to /tasks?task=<id> opens the panel", async () => {
+  renderApp(`/tasks?task=${venue.id}`, { as: ada });
+  const details = await screen.findByRole("complementary", {
+    name: "Task details",
+  });
+  expect(within(details).getByLabelText("Title")).toHaveValue("Book the venue");
+});
+
+it("deleting from the panel closes it", async () => {
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
+  const details = await screen.findByRole("complementary", {
+    name: "Task details",
+  });
+  await user.click(
+    within(details).getByRole("button", { name: "Delete task" }),
+  );
+  expect(panel()).toBeNull();
+  await waitFor(() => expect(db.tasks.has(venue.id)).toBe(false));
+  expect(
+    screen.queryByRole("link", { name: "Book the venue" }),
+  ).not.toBeInTheDocument();
+});

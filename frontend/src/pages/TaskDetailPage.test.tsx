@@ -16,6 +16,7 @@ beforeEach(() => {
 it("opens a task from the list", async () => {
   const { user } = renderApp("/tasks", { as: ada });
   await user.click(await screen.findByRole("link", { name: "Buy milk" }));
+  await user.click(await screen.findByRole("link", { name: "Open as page" }));
   expect(
     await screen.findByRole("heading", { name: "Task details" }),
   ).toBeInTheDocument();
