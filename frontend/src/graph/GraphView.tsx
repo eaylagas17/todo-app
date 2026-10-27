@@ -41,7 +41,7 @@ export function GraphView({ tasks, all }: Props) {
   const [params] = useSearchParams();
   const tick = useToggleSubtask();
   const linkTo = useLink();
-  const { dotProps } = useLinkDrag((fromId, toId) =>
+  const { dotProps, arrow } = useLinkDrag((fromId, toId) =>
     linkTo.mutate({ taskId: fromId, dependsOnId: toId }),
   );
   const scroller = useRef<HTMLDivElement>(null);
@@ -202,6 +202,7 @@ export function GraphView({ tasks, all }: Props) {
           </div>
         </div>
       </div>
+      {arrow}
     </section>
   );
 }

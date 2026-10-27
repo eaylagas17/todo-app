@@ -668,11 +668,15 @@ label {
   mask: url("./assets/chain.png") center / contain no-repeat;
 }
 
+/* Only the small ring shows. Square corners: in a row the dot's cell carries the row's separator
+   (border-bottom), and a button's rounded corners curved it into odd little edges. A focus ring
+   appears for keyboard focus only (:focus-visible, above). */
 .dot {
   flex: none;
   width: 28px;
   min-height: 44px;
   padding: 0;
+  border-radius: 0;
   background: transparent;
   touch-action: none;
   cursor: crosshair;
@@ -693,9 +697,57 @@ label {
   cursor: crosshair;
 }
 
-.linking .task:hover {
-  outline: 2px dashed var(--sub);
+/* Linking (spec §5.4): the dot you drag from lights up, the task under the pointer is outlined,
+   and an arrow runs from the dot to the pointer. All three go when the pointer is released. */
+.dot[data-active]::after {
+  border-color: var(--link);
+  background: var(--tint);
+  box-shadow: 0 0 0 4px rgb(255 204 0 / 0.35);
+}
+
+.task.link-target {
+  outline: 2px solid var(--link);
   outline-offset: -2px;
+}
+
+.node.link-target {
+  outline: 2px solid var(--link);
+  outline-offset: 2px;
+}
+
+.link-arrow {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  z-index: 10;
+  pointer-events: none;
+  overflow: visible;
+}
+
+.link-arrow path {
+  fill: none;
+  stroke: var(--link);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Marching dashes: the gap and dash add up to 13px, so moving the offset by 13 loops seamlessly. */
+.link-arrow .line {
+  stroke-dasharray: 7 6;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .link-arrow .line {
+    animation: march 0.6s linear infinite;
+  }
+}
+
+@keyframes march {
+  to {
+    stroke-dashoffset: -13;
+  }
 }
 
 .links h3 {
@@ -963,6 +1015,7 @@ label {
 
 /* The dot sits on the node's right edge, where its links leave from. */
 .node .dot {
+  border-radius: 50%;
   position: absolute;
   top: 50%;
   right: -10px;

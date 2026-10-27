@@ -24,7 +24,7 @@ export function TaskItem({ task, link, handle, ref, style, lift }: Props) {
   const toggle = useToggleTask();
   const remove = useDeleteTask();
   const linkTo = useLink();
-  const { dotProps } = useLinkDrag((fromId, toId) =>
+  const { dotProps, arrow } = useLinkDrag((fromId, toId) =>
     linkTo.mutate({ taskId: fromId, dependsOnId: toId }),
   );
   // Accent C: one pulse when the task turns from waiting to ready, never on first render.
@@ -102,6 +102,7 @@ export function TaskItem({ task, link, handle, ref, style, lift }: Props) {
         aria-label={`Link ${task.title} to another task`}
         {...dotProps(task.id)}
       />
+      {arrow}
       <button
         type="button"
         className="delete"
