@@ -1,15 +1,24 @@
 import { type ReactNode, useEffect, useRef } from "react";
 
-type Props = { title: string; onClose: () => void; children: ReactNode };
+type Props = {
+  title: string;
+  taskId: string;
+  onClose: () => void;
+  children: ReactNode;
+};
 
-/** A task beside the list on wide screens, and a sheet from the bottom on phones (CSS only). */
-export function SidePanel({ title, onClose, children }: Props) {
+/**
+ * A task beside the list on wide screens, and a sheet from the bottom on phones (CSS only). It
+ * stays mounted while open, so it slides in once (spec §5.6); switching tasks swaps its content.
+ */
+export function SidePanel({ title, taskId, onClose, children }: Props) {
   const panel = useRef<HTMLElement>(null);
 
-  // Focus moves into the panel when it opens, so the keyboard lands on the title.
+  // Focus moves into the panel when it opens and when it shows another task, so the keyboard
+  // lands on the title.
   useEffect(() => {
     panel.current?.querySelector("input")?.focus();
-  }, []);
+  }, [taskId]);
 
   // Escape closes it from anywhere on the page, as it would a dialog.
   useEffect(() => {

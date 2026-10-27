@@ -44,6 +44,21 @@ it("closes the panel with Close, Escape and the back button", async () => {
   expect(screen.getByTestId("location")).toHaveTextContent(/^\/tasks$/);
 });
 
+it("keeps the same panel when switching tasks and focuses the new title", async () => {
+  const { user } = renderApp("/tasks", { as: ada });
+  await openVenue(user);
+  const first = panel();
+  await user.click(screen.getByRole("link", { name: "Order the cake" }));
+  await waitFor(() =>
+    expect(within(panel()!).getByLabelText("Title")).toHaveValue(
+      "Order the cake",
+    ),
+  );
+  // The same element: it slid in once and stays put while the task changes.
+  expect(panel()).toBe(first);
+  expect(within(panel()!).getByLabelText("Title")).toHaveFocus();
+});
+
 it("opens the full page from the panel", async () => {
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
   await user.click(await screen.findByRole("link", { name: "Open as page" }));

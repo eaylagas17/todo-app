@@ -21,7 +21,8 @@ const DEFAULT_CATEGORIES = ["Work", "Home", "Errands", "Health", "Finance"];
 export const requests: Recorded[] = [];
 
 let lastId = 0;
-const nextId = () => `id-${++lastId}`;
+// Zero-padded, so ids sort by creation as UUIDv7 ids do on the server (colours rank chains by age).
+const nextId = () => `id-${String(++lastId).padStart(4, "0")}`;
 
 export function resetDb() {
   db.users.clear();

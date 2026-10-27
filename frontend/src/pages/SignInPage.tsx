@@ -38,6 +38,7 @@ export function SignInPage() {
       <h1>Sign in</h1>
       <form
         ref={form}
+        className="signin"
         onSubmit={(event) => {
           event.preventDefault();
           submit(login);

@@ -121,13 +121,15 @@ export function TaskListPage() {
       </main>
       {openId && tasks.data && (
         <SidePanel
-          key={openId}
           title={open?.title ?? "Task not found"}
+          taskId={openId}
           onClose={closePanel}
         >
           {open && (
             <>
+              {/* Keyed by task: switching tasks starts its editor afresh. */}
               <TaskDetails
+                key={open.id}
                 task={open}
                 refreshError={null}
                 onDeleted={closePanel}
