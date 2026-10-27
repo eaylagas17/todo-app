@@ -9,15 +9,16 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
-from app.db import Base, engine
+from app.db import engine
 from app.errors import register_error_handlers
+from app.migrate import migrate
 from app.routes import router
 from app.seed import seed_demo
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    Base.metadata.create_all(engine)
+    migrate(engine)
     if os.environ.get("SEED_DEMO") == "1":
         with Session(engine) as db:
             seed_demo(db)

@@ -15,7 +15,7 @@ docker compose up --build
 ```
 
 Open http://localhost:8000. One container serves the app and the API; Postgres runs beside it.
-After pulling schema changes, reset the local database: `docker compose down -v` (or, without Docker, delete `backend/todo.db`).
+The schema updates itself as the app starts (Alembic migrations).
 
 **Without Docker** (uses SQLite; needs Node 24.15+, 22.22+ or 26+):
 
@@ -31,8 +31,8 @@ Open http://localhost:5173. Ctrl+C stops everything.
 **Tests:**
 
 ```bash
-cd backend && uv run pytest --cov=app        # 123 tests
-cd ../frontend && npm ci && npm test         # 208 tests
+cd backend && uv run pytest --cov=app        # 121 tests
+cd ../frontend && npm ci && npm test         # 196 tests
 ```
 
 ## Summary
@@ -84,7 +84,7 @@ Nothing here is built ahead of need. Each request touches only one person's task
 |---|---|---|
 | Rate limits on sign-up, sign-in and AI calls, per IP and per account | Today one person can guess passwords, or open many accounts to drain the shared AI budget (capped at $1 a month) | 1 h |
 | Email confirmation and password reset | People forget passwords; confirming an email makes throwaway accounts costly | 3 h |
-| Alembic migrations, run on deploy | `create_all` creates tables but never changes one: the first schema change on a database with real data needs it | 1 h |
+| Deploys from CI, signed in with GitHub's OIDC (no stored password) | Today a release is the commands below, run by hand | 1 h |
 | Browser tests in CI: Playwright checks of layout and flows, and an accessibility scan | Today's tests run in jsdom, which can't see layout: rows that shifted when filtering passed every test | 3 h |
 | Structured logs with request ids | With several copies running, one failing request must be traceable across them | 30 min |
 | httpOnly cookie sessions, CSRF protection, a Content Security Policy | A token in `localStorage` can be read by injected script; React already escapes text, so this is defence in depth | 2 h |
@@ -97,6 +97,7 @@ Nothing here is built ahead of need. Each request touches only one person's task
 | Sign-ins slowing under load (Argon2 is slow on purpose) | The rate limits above, more copies, then tune Argon2's cost | 30 min |
 | The task list slower than ~200 ms at the 95th percentile (people with thousands of tasks) | Keyset pagination | 1 h |
 | People losing edits made on two devices at once | A version column with `If-Match`, answering 412 to the stale one | 1 h |
+| v1.0 no longer a version to roll back to | The contract step: rename the task columns to match the code (`description` → `title`, `details` → `description`) | 15 min |
 | Needing latency and error rates per endpoint | Tracing and metrics with OpenTelemetry into Azure Monitor (Prometheus and Grafana elsewhere) | 4 h |
 
 **What people would ask for:**
@@ -131,13 +132,13 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 
 ## Testing
 
-- **Backend:** 123 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
-- **Frontend:** 208 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
-- **Edge cases:** 58, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
+- **Backend:** 121 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
+- **Frontend:** 196 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
+- **Edge cases:** 61, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
 - **CI** (GitHub Actions) runs lint, types, both suites on both databases, and a Docker smoke test on every push.
 
 <details>
-<summary>The 58 edge cases</summary>
+<summary>The 61 edge cases</summary>
 
 | # | Case | Behaviour |
 |---|---|---|
@@ -167,39 +168,74 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 | E54–E55 | Dragging with completed tasks hidden; linking to a completed task | Hidden tasks keep their slots; it comes back, greyed |
 | E56 | Deleting the last open task of a chain | Its done tasks close up at once, without the bar |
 | E57–E58 | Dragging a chain into the end of the list; Escape mid-drag | It stops like a pushed stack; everything goes back |
+| E59–E60 | A database made by v1.0; three copies of the app starting at once | Upgraded in place, each task's text becoming its title; one copy migrates, the others wait |
+| E61 | Rolling back to v1.0 after the upgrade | v1.0 reads, adds and deletes tasks on the new schema |
 
 </details>
 
 ## Deploying to the cloud
 
-The API is stateless (sessions live in Postgres, settings come from environment variables), so the same image scales out by running more copies behind a load balancer that checks `/api/health`. On Azure:
+**Running at https://todo-app.calmforest-9fc6134c.centralus.azurecontainerapps.io**. Sign in as `demo@example.com` / `demo-password`, or create an account. With no traffic it scales to zero, so the first request after a quiet spell takes a few seconds.
 
-- **Azure Container Apps:** the image as 2+ replicas across availability zones, autoscaled, with a readiness probe on `/api/health`
-- **Azure Database for PostgreSQL (Flexible Server):** a zone-redundant standby and point-in-time backups
-- **Azure Front Door:** a CDN for the built files (hashed names, cached a year) and TLS
-- **Azure Key Vault:** `DATABASE_URL`, never baked into the image
+The API is stateless (sessions live in Postgres, settings come from environment variables), so the same image scales out by running more copies. On Azure:
 
-<details>
-<summary>Azure CLI steps</summary>
+- **Azure Container Apps:** the image from GitHub's registry, 0 to 3 copies by load, HTTPS included. Each release is a new *revision*, and traffic is split between revisions by percentage.
+- **Azure Database for PostgreSQL (Flexible Server):** Postgres 18 on the smallest tier (Burstable B1ms, 32 GB), TLS required.
+- **Migrations** run as each copy starts, before it accepts requests; a Postgres lock lets one copy migrate while the others wait. The default probes are enough: a copy opens its port only after migrating, so only after reaching the database.
+- **Secrets** (`DATABASE_URL`, `TYPESAFE_API_KEY`) are Container Apps secrets, never in the image or in git.
+- **Cost:** sized for the free account's monthly allowances (750 hours of B1ms with 32 GB for the database; Container Apps' free grant of CPU time and requests). A $5 monthly budget alert and the trial's spending limit guard the rest.
+
+### Releasing and rolling back
+
+Every release is a git tag and an image named after its commit. The new revision starts beside the live one with no traffic, gets checked on its own address, and only then takes the traffic. The previous revision stays ready, so rolling back is one command.
+
+That works because a schema change only adds things (a table, a nullable column, a column with a default in the database): the previous version keeps working on the new schema, and both can run at once. A rename or a removal is split in two: the code stops needing the old shape first, and a later release, once nothing will roll back past it, changes the schema (expand, then contract). v1.1 shows it: the task's text was v1.0's `description` and is v1.1's `title`, so the column keeps its old name for now.
 
 ```bash
-az group create --name todo-rg --location westeurope
-az acr create --resource-group todo-rg --name <registry> --sku Basic
-az acr build --registry <registry> --image todo-app:1 .
+# 1. Tag the release and publish its image
+git tag v1.1.0 && git push origin v1.1.0
+SHA=$(git rev-parse --short v1.1.0)
+docker buildx build --platform linux/amd64 --build-arg GIT_SHA=$SHA \
+  -t ghcr.io/eaylagas17/todo-app:$SHA --push .
 
-az postgres flexible-server create --resource-group todo-rg --name <db-server> \
-  --tier GeneralPurpose --sku-name Standard_D2ds_v5 --high-availability ZoneRedundant \
-  --admin-user todo --admin-password '<strong password>' --database-name todo
+# 2. Pin the traffic to the live revision, then start the new one beside it (it migrates as it starts)
+az containerapp ingress traffic set -g todo-rg -n todo-app --revision-weight todo-app--v1-0-0=100
+az containerapp update -g todo-rg -n todo-app --revision-suffix v1-1-0 \
+  --image ghcr.io/eaylagas17/todo-app:$SHA --set-env-vars SEED_DEMO=1
 
-az containerapp env create --resource-group todo-rg --name todo-env --location westeurope
-az containerapp create --resource-group todo-rg --name todo-app --environment todo-env \
-  --image <registry>.azurecr.io/todo-app:1 --registry-server <registry>.azurecr.io --registry-identity system \
-  --target-port 8000 --ingress external --min-replicas 2 --max-replicas 10 \
-  --secrets database-url='postgresql+psycopg://todo:<password>@<db-server>.postgres.database.azure.com:5432/todo?sslmode=require' \
-  --env-vars DATABASE_URL=secretref:database-url
+# 3. Check it on its own address, while everyone else stays on the live one
+curl https://todo-app--v1-1-0.calmforest-9fc6134c.centralus.azurecontainerapps.io/api/status
+
+# 4. Move the traffic (all at once, or 10% first)
+az containerapp ingress traffic set -g todo-rg -n todo-app --revision-weight todo-app--v1-1-0=100
+
+# Roll back: the previous revision is still running
+az containerapp ingress traffic set -g todo-rg -n todo-app --revision-weight todo-app--v1-0-0=100
 ```
 
-Then put the app and the database in one virtual network, point the readiness probe at `/api/health`, and move the secret into Key Vault. These steps weren't run against a live subscription; the image and health checks they rely on are tested.
+<details>
+<summary>The one-time setup</summary>
+
+```bash
+az group create -n todo-rg -l centralus
+az postgres flexible-server create -g todo-rg -n todo-db-928edc -l centralus --version 18 \
+  --tier Burstable --sku-name Standard_B1ms --storage-size 32 \
+  --admin-user todo --admin-password "$PGPASS" --public-access 0.0.0.0
+az postgres flexible-server db create -g todo-rg -s todo-db-928edc -n todo
+az containerapp env create -g todo-rg -n todo-env -l centralus
+
+# v1.0.0, the first revision. The image is public, so no registry password.
+az containerapp create -g todo-rg -n todo-app --environment todo-env \
+  --image ghcr.io/eaylagas17/todo-app:62a77df --revisions-mode multiple --revision-suffix v1-0-0 \
+  --ingress external --target-port 8000 --cpu 0.25 --memory 0.5Gi --min-replicas 0 --max-replicas 3 \
+  --secrets database-url="postgresql+psycopg://todo:$PGPASS@todo-db-928edc.postgres.database.azure.com:5432/todo?sslmode=require" \
+            typesafe-api-key="$TYPESAFE_API_KEY" \
+  --env-vars DATABASE_URL=secretref:database-url TYPESAFE_API_KEY=secretref:typesafe-api-key
+```
+
+`$PGPASS` was generated (`secrets.token_urlsafe(24)`) and never printed; `$TYPESAFE_API_KEY` came from `backend/.env`.
+
+What production would add: two or more copies across availability zones, a zone-redundant database standby, the database inside a private network instead of the firewall rule that admits Azure services (`0.0.0.0`), secrets in Key Vault, and Front Door to cache the built files.
 
 </details>
 
