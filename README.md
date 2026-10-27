@@ -31,8 +31,8 @@ Open http://localhost:5173. Ctrl+C stops everything.
 **Tests:**
 
 ```bash
-cd backend && uv run pytest --cov=app        # 117 tests
-cd ../frontend && npm ci && npm test         # 142 tests
+cd backend && uv run pytest --cov=app        # 123 tests
+cd ../frontend && npm ci && npm test         # 208 tests
 ```
 
 ## Summary
@@ -116,7 +116,7 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 ## Testing
 
 - **Backend:** 123 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
-- **Frontend:** 202 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
+- **Frontend:** 208 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
 - **Edge cases:** 58, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
 - **CI** (GitHub Actions) runs lint, types, both suites on both databases, and a Docker smoke test on every push.
 
