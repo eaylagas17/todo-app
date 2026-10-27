@@ -111,6 +111,24 @@ describe("linkGroups", () => {
   it("leaves an unlinked task out", () => expect(groups.has("e")).toBe(false));
 });
 
+describe("linkGroups colours", () => {
+  // Three chains, the youngest first in the list: ids sort by age (UUIDv7), so a < c < e.
+  const list = [
+    task("e", 1),
+    waiting("f", 2, ["e"]),
+    task("a", 3),
+    waiting("b", 4, ["a"]),
+    task("c", 5),
+    waiting("d", 6, ["c"]),
+  ];
+  const hues = (tasks: Task[]) =>
+    ["a", "c", "e"].map((id) => linkGroups(tasks).get(id)?.hue);
+  it("hands out colours in order of age", () =>
+    expect(hues(list)).toEqual([210, 30, 140]));
+  it("keeps a chain's colour when the list is reordered", () =>
+    expect(hues(list.toReversed())).toEqual([210, 30, 140]));
+});
+
 describe("steps", () => {
   it("counts from 1 along the links", () =>
     expect(steps([task("A", 1), waiting("B", 2, ["A"])])).toEqual(
