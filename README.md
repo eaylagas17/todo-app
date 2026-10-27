@@ -69,7 +69,7 @@ flowchart LR
 
 Estimates assume working with an AI assistant, as this project was (see [AI assistance](#ai-assistance)).
 
-**To make it more robust before real users:**
+**To make it more robust:**
 
 | Change | Why | Estimate |
 |---|---|---|
