@@ -216,8 +216,9 @@ export const useToggleTask = () =>
 /** Saves the whole order after a drag; the rows glide into place where the browser can. */
 export const useReorder = () =>
   useOptimisticTaskMutation(
-    (ids: string[]) => saveOrder(ids),
-    (tasks, ids) => {
+    ({ ids, previous }: { ids: string[]; previous: string[] }) =>
+      saveOrder(ids, previous),
+    (tasks, { ids }) => {
       const position = new Map(ids.map((id, i) => [id, i + 1]));
       return tasks.map((t) => ({ ...t, position: position.get(t.id) ?? 0 }));
     },

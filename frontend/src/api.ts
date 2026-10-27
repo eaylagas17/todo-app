@@ -182,9 +182,12 @@ export const unlinkTasks = (taskId: string, dependsOnId: string) =>
     { method: "DELETE" },
   );
 
-/** The whole list's new order, top to bottom. */
-export const saveOrder = (ids: string[]) =>
-  request<Task[]>("/task-order", { method: "PUT", body: { ids } });
+/**
+ * The whole list's new order, top to bottom, and the order it was made from: if another tab
+ * changed the list since, the server refuses (409 ORDER_STALE) instead of overwriting.
+ */
+export const saveOrder = (ids: string[], previous: string[]) =>
+  request<Task[]>("/task-order", { method: "PUT", body: { ids, previous } });
 
 /** Adds the wedding example to the signed-in user's list. Answers with the whole list. */
 export const loadExample = () =>

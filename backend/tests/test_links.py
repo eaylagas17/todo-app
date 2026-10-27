@@ -22,8 +22,13 @@ def titles(client, headers) -> list[str]:
     return [task["title"] for task in listed(client, headers)]
 
 
-def put_order(client, headers, ids):
-    return client.put("/api/task-order", json={"ids": ids}, headers=headers)
+def put_order(client, headers, ids, previous=None):
+    # previous: the order the drag started from; by default, the list as it is now.
+    if previous is None:
+        previous = [task["id"] for task in listed(client, headers)]
+    return client.put(
+        "/api/task-order", json={"ids": ids, "previous": previous}, headers=headers
+    )
 
 
 def test_link_returns_the_list_with_waits_for(client, ada):
@@ -124,6 +129,18 @@ def test_stale_order_is_409(client, ada, grace):
         assert response.status_code == 409, ids
         assert response.json()["error"]["code"] == "ORDER_STALE"
     assert titles(client, ada) == ["A", "B", "C"]
+
+
+def test_two_tabs_saving_from_the_same_order_is_409(client, ada):
+    # Review Focus 1: both tabs start from [A, B, C]. The first save wins; the second was
+    # made on an order that no longer exists, so it's refused instead of overwriting.
+    a, b, c = (add_task(client, ada, title)["id"] for title in ("A", "B", "C"))
+    first = put_order(client, ada, [b, a, c], previous=[a, b, c])
+    assert first.status_code == 200
+    second = put_order(client, ada, [a, c, b], previous=[a, b, c])
+    assert second.status_code == 409
+    assert second.json()["error"]["code"] == "ORDER_STALE"
+    assert titles(client, ada) == ["B", "A", "C"]
 
 
 def test_order_that_breaks_a_link_is_409(client, ada):

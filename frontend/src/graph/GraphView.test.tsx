@@ -86,3 +86,22 @@ it("zooms with the buttons", async () => {
   await user.click(within(area).getByRole("button", { name: "Zoom out" }));
   expect(level).toHaveTextContent("100%");
 });
+
+it("keeps the list's steps when a filter hides a prerequisite", async () => {
+  const work = [...db.categories.values()].find(
+    ({ ownerId, category }) =>
+      ownerId === ada.user.id && category.name === "Work",
+  )!.category.id;
+  const invites = [...db.tasks.values()].find(
+    ({ task }) => task.title === "Send invitations",
+  )!.task;
+  invites.category_id = work;
+  renderApp(`/tasks?view=graph&category=${work}`, { as: ada });
+  const area = await graph();
+  expect(
+    await within(area).findByRole("img", { name: "Step 2, waiting" }),
+  ).toBeInTheDocument();
+  expect(
+    within(area).queryByRole("link", { name: /^Book the venue/ }),
+  ).toBeNull();
+});

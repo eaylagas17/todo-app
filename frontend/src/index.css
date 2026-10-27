@@ -315,7 +315,9 @@ label {
 /* Text on the left (title over the grey line), the category name on the right. */
 .task > a {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  /* fit-content(40%): the category takes its own width, but never more than 40% of the row,
+     so a long category name can't push the title out (it ellipsizes instead). */
+  grid-template-columns: minmax(0, 1fr) fit-content(40%);
   column-gap: 0.5rem;
   align-items: center;
 }
@@ -323,6 +325,10 @@ label {
 .task .category {
   grid-column: 2;
   grid-row: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--sub);
   font-size: 0.8125rem;
 }

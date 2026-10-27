@@ -165,7 +165,10 @@ it("moving a task below the task waiting for it pulls that task along", async ()
     expect(requests).toContainEqual({
       method: "PUT",
       path: "/api/task-order",
-      body: { ids: [cake.id, venue.id, invites.id] },
+      body: {
+        ids: [cake.id, venue.id, invites.id],
+        previous: [venue.id, invites.id, cake.id],
+      },
     }),
   );
   expect(titles()).toEqual([

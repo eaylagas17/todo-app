@@ -38,7 +38,8 @@ export function SortableTaskList({ tasks, links }: Props) {
   function drop({ active, over }: DragEndEvent) {
     const order =
       over && moveWithLinks(tasks, String(active.id), String(over.id));
-    if (order) reorder.mutate(order);
+    if (order)
+      reorder.mutate({ ids: order, previous: tasks.map((task) => task.id) });
   }
 
   return (

@@ -180,7 +180,7 @@ def unlink_tasks(depends_on_id: uuid.UUID, task: OwnedTask, db: DbSession) -> No
     "/task-order", response_model=list[TaskOut], responses=errors(400, 401, 409)
 )
 def set_order(order: OrderIn, user: SignedInUser, db: DbSession) -> list[Task]:
-    return crud.set_order(db, user, order.ids)
+    return crud.set_order(db, user, order.ids, order.previous)
 
 
 @router.post(
