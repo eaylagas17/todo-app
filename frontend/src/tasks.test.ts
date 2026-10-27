@@ -3,10 +3,15 @@ import type { Task } from "./api.ts";
 import {
   allOf,
   byPosition,
+  formatDate,
+  formatDay,
+  inMainList,
   inCategory,
   isWaiting,
   linkGroups,
   matchesSearch,
+  mergeOrder,
+  newestDone,
   slotAt,
   steps,
   subtaskProgress,
@@ -225,4 +230,86 @@ describe("allOf and inCategory", () => {
     expect([work, home].filter(both)).toEqual([work]);
     expect([work, home].filter(allOf<Task>())).toEqual([work, home]);
   });
+});
+
+const done = (t: Task, at = "2026-10-27T09:00:00Z"): Task => ({
+  ...t,
+  completed: true,
+  completed_at: at,
+});
+const ids = (tasks: Task[]) => tasks.map((t) => t.id);
+const none = new Set<string>();
+
+describe("inMainList", () => {
+  it("keeps open tasks", () =>
+    expect(ids(inMainList([task("a", 1), task("b", 2)], none))).toEqual([
+      "a",
+      "b",
+    ]));
+  it("drops a completed unlinked task", () =>
+    expect(ids(inMainList([task("a", 1), done(task("b", 2))], none))).toEqual([
+      "a",
+    ]));
+  it("keeps a completed task while its chain is unfinished", () =>
+    expect(
+      ids(inMainList([done(task("a", 1)), waiting("b", 2, ["a"])], none)),
+    ).toEqual(["a", "b"]));
+  const finished = [
+    done(task("a", 1)),
+    done(waiting("b", 2, ["a"])),
+    task("c", 3),
+  ];
+  it("drops a finished chain", () =>
+    expect(ids(inMainList(finished, none))).toEqual(["c"]));
+  it("keeps a finished chain while one of its tasks is in its window", () =>
+    expect(ids(inMainList(finished, new Set(["b"])))).toEqual(["a", "b", "c"]));
+  it("keeps a completed unlinked task in its window", () =>
+    expect(ids(inMainList([done(task("a", 1))], new Set(["a"])))).toEqual([
+      "a",
+    ]));
+});
+
+describe("mergeOrder", () => {
+  it("puts reordered tasks in the visible slots", () =>
+    expect(mergeOrder(["a", "h1", "b", "c", "h2"], ["c", "a", "b"])).toEqual([
+      "c",
+      "h1",
+      "a",
+      "b",
+      "h2",
+    ]));
+});
+
+describe("newestDone", () => {
+  it("lists completed tasks newest first, skipping open ones", () =>
+    expect(
+      ids(
+        newestDone([
+          done(task("a", 1), "2026-10-27T09:00:00Z"),
+          task("b", 2),
+          done(task("c", 3), "2026-10-27T10:00:00Z"),
+        ]),
+      ),
+    ).toEqual(["c", "a"]));
+});
+
+describe("formatDay and formatDate", () => {
+  // Local times, so the tests pass in any time zone.
+  const now = new Date(2026, 9, 27, 18, 0);
+  const at = (...parts: [number, number, number, number, number]) =>
+    new Date(...parts).toISOString();
+  it("says today with the time", () =>
+    expect(formatDay(at(2026, 9, 27, 10, 31), now, "en-GB")).toBe(
+      "today 10:31",
+    ));
+  it("says yesterday across midnight", () =>
+    expect(formatDay(at(2026, 9, 26, 23, 59), now, "en-GB")).toBe("yesterday"));
+  it("gives the day and month this year", () =>
+    expect(formatDay(at(2026, 9, 25, 12, 0), now, "en-GB")).toBe("25 Oct"));
+  it("adds the year for another year", () =>
+    expect(formatDay(at(2025, 9, 25, 12, 0), now, "en-GB")).toBe(
+      "25 Oct 2025",
+    ));
+  it("gives a full date for the panel", () =>
+    expect(formatDate(at(2026, 9, 19, 12, 0), "en-GB")).toBe("19 Oct 2026"));
 });
