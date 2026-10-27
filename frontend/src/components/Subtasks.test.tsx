@@ -41,7 +41,8 @@ it("adds, ticks and deletes subtasks in the panel", async () => {
   );
 });
 
-it("shows subtask progress in the list", async () => {
+it("shows subtask progress in the list, only for tasks that have subtasks", async () => {
+  seedTasks(ada, ["Buy milk"]);
   db.tasks.get(venue.id)!.task.subtasks = [
     { id: "s1", title: "Shortlist", completed: true },
     { id: "s2", title: "Visit", completed: false },
@@ -50,6 +51,7 @@ it("shows subtask progress in the list", async () => {
   renderApp("/tasks", { as: ada });
   const list = await screen.findByRole("list", { name: "Tasks" });
   expect(within(list).getByText("1 of 3")).toBeInTheDocument();
+  expect(within(list).getAllByText(/^\d+ of \d+$/)).toHaveLength(1);
 });
 
 it("restores a subtask when ticking fails", async () => {

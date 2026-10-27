@@ -20,7 +20,7 @@ const answer = (replica: string) => ({
   ai_enabled: true,
 });
 
-it("shows the running version and the database state", async () => {
+it("shows the running version, the database state and the API docs link", async () => {
   server.use(http.get("/api/status", () => HttpResponse.json(answer("app-1"))));
   renderApp("/status", { as: ada });
   expect(await screen.findByText("abc123")).toBeInTheDocument();
@@ -30,6 +30,12 @@ it("shows the running version and the database state", async () => {
   // Operator numbers stay off the page (Feedback 7).
   expect(screen.queryByText(/spend/i)).toBeNull();
   expect(screen.queryByText(/calls today/i)).toBeNull();
+  const docs = screen.getByRole("link", {
+    name: "Open the interactive API docs",
+  });
+  expect(docs).toHaveAttribute("href", "/docs");
+  expect(docs).toHaveAttribute("target", "_blank");
+  expect(docs).toHaveAttribute("rel", "noreferrer");
 });
 
 it("remembers which replicas answered", async () => {
@@ -47,14 +53,4 @@ it("remembers which replicas answered", async () => {
   await user.click(screen.getByRole("button", { name: "Refresh now" }));
   expect(await within(seen).findByText("app-2")).toBeInTheDocument();
   expect(within(seen).getByText("app-1")).toBeInTheDocument();
-});
-
-it("links to the interactive API docs, in a new tab", async () => {
-  renderApp("/status", { as: ada });
-  const docs = await screen.findByRole("link", {
-    name: "Open the interactive API docs",
-  });
-  expect(docs).toHaveAttribute("href", "/docs");
-  expect(docs).toHaveAttribute("target", "_blank");
-  expect(docs).toHaveAttribute("rel", "noreferrer");
 });

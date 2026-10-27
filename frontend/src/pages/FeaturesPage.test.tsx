@@ -34,6 +34,9 @@ it("lists every feature with a Show me link", async () => {
     ).toBeInTheDocument();
   }
   expect(screen.getAllByRole("article")).toHaveLength(FEATURES.length);
+  expect(
+    screen.getByRole("link", { name: "Show me: Completed tasks" }),
+  ).toHaveAttribute("href", "/tasks?list=completed");
 });
 
 it("Show me opens the right screen", async () => {
@@ -77,11 +80,4 @@ it("the header shows Tasks, Features and Status", async () => {
   expect(
     await screen.findByRole("heading", { name: "Status", level: 1 }),
   ).toBeInTheDocument();
-});
-
-it("Show me for completed tasks opens the Completed page", async () => {
-  renderApp("/features", { as: ada });
-  expect(
-    await screen.findByRole("link", { name: "Show me: Completed tasks" }),
-  ).toHaveAttribute("href", "/tasks?list=completed");
 });

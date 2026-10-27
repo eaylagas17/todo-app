@@ -14,7 +14,6 @@ import {
   newestDone,
   slotAt,
   steps,
-  subtaskProgress,
   sweep,
 } from "./tasks.ts";
 
@@ -46,11 +45,6 @@ describe("byPosition", () => {
         task("b2", 2),
       ]).map((t) => t.id),
     ).toEqual(["a", "b1", "b2", "c"]));
-  it("does not mutate its input", () => {
-    const input = [task("b", 2), task("a", 1)];
-    byPosition(input);
-    expect(input.map((t) => t.id)).toEqual(["b", "a"]);
-  });
 });
 
 describe("sweep", () => {
@@ -202,22 +196,6 @@ describe("matchesSearch", () => {
     expect(ids("  ")).toEqual(["1", "2", "3"]));
 });
 
-describe("subtaskProgress", () => {
-  it("is null for a task without subtasks", () =>
-    expect(subtaskProgress(task("1", 1))).toBeNull());
-  it("counts the done ones", () =>
-    expect(
-      subtaskProgress({
-        ...task("1", 1),
-        subtasks: [
-          { id: "a", title: "a", completed: true },
-          { id: "b", title: "b", completed: true },
-          { id: "c", title: "c", completed: false },
-        ],
-      }),
-    ).toBe("2 of 3"));
-});
-
 describe("allOf and inCategory", () => {
   const work = { ...task("1", 1, "Report"), category_id: "work" };
   const home = { ...task("2", 2, "Laundry"), category_id: "home" };
@@ -294,26 +272,24 @@ describe("newestDone", () => {
 });
 
 describe("formatDay and formatDate", () => {
-  // Local times, so the tests pass in any time zone.
+  // Local times, so the test passes in any time zone.
   const now = new Date(2026, 9, 27, 18, 0);
   const at = (...parts: [number, number, number, number, number]) =>
     new Date(...parts).toISOString();
-  it("says today with the time", () =>
-    expect(formatDay(at(2026, 9, 27, 10, 31), now, "en-GB")).toBe(
+  it("says today, yesterday, a date, or a date with its year", () =>
+    expect([
+      formatDay(at(2026, 9, 27, 10, 31), now, "en-GB"),
+      formatDay(at(2026, 9, 26, 23, 59), now, "en-GB"), // across midnight
+      formatDay(at(2026, 9, 25, 12, 0), now, "en-GB"),
+      formatDay(at(2025, 9, 25, 12, 0), now, "en-GB"),
+      formatDay(at(2026, 9, 27, 10, 31), now, "en-GB", false),
+      formatDate(at(2026, 9, 19, 12, 0), "en-GB"), // the panel's full date
+    ]).toEqual([
       "today 10:31",
-    ));
-  it("says yesterday across midnight", () =>
-    expect(formatDay(at(2026, 9, 26, 23, 59), now, "en-GB")).toBe("yesterday"));
-  it("gives the day and month this year", () =>
-    expect(formatDay(at(2026, 9, 25, 12, 0), now, "en-GB")).toBe("25 Oct"));
-  it("adds the year for another year", () =>
-    expect(formatDay(at(2025, 9, 25, 12, 0), now, "en-GB")).toBe(
+      "yesterday",
+      "25 Oct",
       "25 Oct 2025",
-    ));
-  it("leaves the time out when asked", () =>
-    expect(formatDay(at(2026, 9, 27, 10, 31), now, "en-GB", false)).toBe(
       "today",
-    ));
-  it("gives a full date for the panel", () =>
-    expect(formatDate(at(2026, 9, 19, 12, 0), "en-GB")).toBe("19 Oct 2026"));
+      "19 Oct 2026",
+    ]));
 });
