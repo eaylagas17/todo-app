@@ -16,9 +16,11 @@ type Props = {
   handle?: ReactNode;
   ref?: Ref<HTMLLIElement>;
   style?: CSSProperties;
+  /** While dragging: the row being dragged, or one travelling with it. */
+  lift?: "lifted" | "swept";
 };
 
-export function TaskItem({ task, link, handle, ref, style }: Props) {
+export function TaskItem({ task, link, handle, ref, style, lift }: Props) {
   const toggle = useToggleTask();
   const remove = useDeleteTask();
   const linkTo = useLink();
@@ -44,7 +46,7 @@ export function TaskItem({ task, link, handle, ref, style }: Props) {
   const category = useCategories().data?.find((c) => c.id === task.category_id);
   return (
     <li
-      className="task"
+      className={lift ? `task ${lift}` : "task"}
       ref={ref}
       data-task-id={task.id}
       style={

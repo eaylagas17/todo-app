@@ -14,7 +14,7 @@ import {
   useToggleTask,
   useUpdateTask,
 } from "./queries.ts";
-import { moveWithLinks } from "./tasks.ts";
+import { sweep } from "./tasks.ts";
 import {
   db,
   gate,
@@ -118,7 +118,7 @@ it("saves a move on the server", async () => {
 });
 
 it("applies two quick moves in a row", async () => {
-  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  const [, b, c] = seedTasks(ada, ["a", "b", "c"]);
   const { wait, release } = gate();
   server.use(
     http.put("/api/task-order", async () => {
@@ -129,18 +129,19 @@ it("applies two quick moves in a row", async () => {
     list: useTasks(),
     move: useReorder(),
   }));
+  const ids = () => result.current.list.data!.map((t) => t.id);
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
   act(() =>
     result.current.move.mutate({
-      ids: moveWithLinks(result.current.list.data!, c.id, a.id)!,
-      previous: result.current.list.data!.map((t) => t.id),
+      ids: sweep(ids(), {}, c.id, 0).order,
+      previous: ids(),
     }),
   );
   await waitFor(() => expect(result.current.list.data?.[0].title).toBe("c"));
   act(() =>
     result.current.move.mutate({
-      ids: moveWithLinks(result.current.list.data!, b.id, c.id)!,
-      previous: result.current.list.data!.map((t) => t.id),
+      ids: sweep(ids(), {}, b.id, 0).order,
+      previous: ids(),
     }),
   );
   await waitFor(() =>

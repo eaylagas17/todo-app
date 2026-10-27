@@ -38,74 +38,77 @@ export const allOf =
   (item: T): boolean =>
     tests.every((test) => test(item));
 
-export type Direction = "down" | "up";
-
-const waitsForMap = (tasks: readonly Task[]) =>
+/** Each task's prerequisites, by id: the shape `sweep` reads links in. */
+export const waitsForMap = (tasks: readonly Task[]): Record<string, string[]> =>
   Object.fromEntries(tasks.map((task) => [task.id, task.waits_for]));
 
 /**
- * The order closest to `desired` that keeps every link (spec §8.3): a stable topological sort.
- * "down" fills from the top, so dependents in the way are pushed below the dragged task; "up"
- * fills from the bottom, so prerequisites in the way are pulled above it. The same algorithm as
- * backend/app/graph.py, tested against the same table (shared/repair-cases.json).
+ * The snowball (spec §5.2): the dragged task lands at `slot`, its index in the result. Going
+ * down, a task that waits for anything in the moving block joins it when the block reaches it,
+ * and travels right behind; going up is the mirror image, with prerequisites joining on top.
+ * Everything else keeps its relative order and flows around the block. If the block can't fit
+ * (a wall), the dragged task stops short of `slot`, like a pushed stack.
+ *
+ * One walk over the other tasks, filling the `room` slots before the block. O(V + E) time, O(V)
+ * space. Every link holds: the original order kept them all, relative order is preserved, and the
+ * block only overtakes tasks that aren't linked to it.
  */
-export function repair(
-  desired: string[],
-  waitsFor: Record<string, string[]>,
-  direction: Direction,
-): string[] {
-  const index = new Map(desired.map((id, i) => [id, i]));
-  const before = new Map(
-    desired.map((id) => [id, (waitsFor[id] ?? []).filter((p) => index.has(p))]),
-  );
-  const after = new Map(desired.map((id) => [id, [] as string[]]));
-  for (const [id, prerequisites] of before)
-    for (const p of prerequisites) after.get(p)!.push(id);
-  const [blocking, unblocks] =
-    direction === "down" ? [before, after] : [after, before];
-  const remaining = new Map(
-    desired.map((id) => [id, blocking.get(id)!.length]),
-  );
-  const available = desired.filter((id) => remaining.get(id) === 0);
-  // Down takes the earliest desired index first; up takes the latest.
-  const sooner = (a: string, b: string) =>
-    direction === "down"
-      ? index.get(a)! < index.get(b)!
-      : index.get(a)! > index.get(b)!;
-  const placed: string[] = [];
-  while (available.length > 0) {
-    // ponytail: linear scan, a binary heap at thousands of tasks
-    let best = 0;
-    for (let i = 1; i < available.length; i++)
-      if (sooner(available[i], available[best])) best = i;
-    const [id] = available.splice(best, 1);
-    placed.push(id);
-    for (const next of unblocks.get(id)!) {
-      remaining.set(next, remaining.get(next)! - 1);
-      if (remaining.get(next) === 0) available.push(next);
-    }
+export function sweep(
+  order: readonly string[],
+  waitsFor: Record<string, readonly string[]>,
+  activeId: string,
+  slot: number,
+): { order: string[]; block: string[] } {
+  const from = order.indexOf(activeId);
+  if (slot === from) return { order: [...order], block: [activeId] };
+  const down = slot > from;
+  const others = order.filter((id) => id !== activeId);
+  if (!down) others.reverse();
+  const room = down ? slot : order.length - 1 - slot;
+  const inBlock = new Set([activeId]);
+  // Going up, a task joins if something in the block waits for it: look that up in O(1).
+  const neededByBlock = new Set(waitsFor[activeId] ?? []);
+  const joins = (id: string) =>
+    down
+      ? (waitsFor[id] ?? []).some((p) => inBlock.has(p))
+      : neededByBlock.has(id);
+  const before: string[] = [];
+  const members: string[] = [];
+  const after: string[] = [];
+  for (const id of others) {
+    if (before.length >= room) after.push(id);
+    else if (joins(id)) {
+      inBlock.add(id);
+      members.push(id);
+      for (const p of waitsFor[id] ?? []) neededByBlock.add(p);
+    } else before.push(id);
   }
-  if (placed.length !== desired.length) throw new Error("links form a loop");
-  return direction === "down" ? placed : placed.reverse();
+  if (down)
+    return {
+      order: [...before, activeId, ...members, ...after],
+      block: [activeId, ...members],
+    };
+  // Walked bottom-up, so each list is reversed back into list order.
+  const block = [...members.reverse(), activeId];
+  return {
+    order: [...after.reverse(), ...block, ...before.reverse()],
+    block,
+  };
 }
 
 /**
- * A drop means what it means in dnd-kit: the dragged task takes the slot of the task it was
- * dropped on. Returns the whole new order, repaired around the links, or null for no change.
+ * Which slot a dragged row is over: how many of the other rows (their heights, in list order,
+ * the dragged row left out) have their middle above the dragged row's top. O(V).
  */
-export function moveWithLinks(
-  tasks: readonly Task[],
-  activeId: string,
-  overId: string,
-): string[] | null {
-  const from = tasks.findIndex((t) => t.id === activeId);
-  const to = tasks.findIndex((t) => t.id === overId);
-  if (from === -1 || to === -1 || from === to) return null;
-  const desired = tasks
-    .map((t) => t.id)
-    .toSpliced(from, 1)
-    .toSpliced(to, 0, activeId);
-  return repair(desired, waitsForMap(tasks), to > from ? "down" : "up");
+export function slotAt(top: number, heights: readonly number[]): number {
+  let slot = 0;
+  let cumulative = 0;
+  for (const h of heights) {
+    if (top <= cumulative + h / 2) break;
+    cumulative += h;
+    slot++;
+  }
+  return slot;
 }
 
 // Soft hues (degrees on the colour wheel), one per group.

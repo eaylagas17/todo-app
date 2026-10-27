@@ -1,7 +1,7 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
 import type { AuthResult, Category, Subtask, Task } from "../api.ts";
-import { repair } from "../tasks.ts";
+import { repair } from "./repair.ts";
 
 type Account = { id: string; email: string; password: string };
 type Credentials = { email: string; password: string };

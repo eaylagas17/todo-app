@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "./api.ts";
-import cases from "../../shared/repair-cases.json";
 import {
   allOf,
   byPosition,
@@ -8,10 +7,10 @@ import {
   isWaiting,
   linkGroups,
   matchesSearch,
-  moveWithLinks,
-  repair,
+  slotAt,
   steps,
   subtaskProgress,
+  sweep,
 } from "./tasks.ts";
 
 const task = (id: string, position: number, title = id): Task => ({
@@ -47,46 +46,50 @@ describe("byPosition", () => {
   });
 });
 
-describe("repair", () => {
-  // The same table the backend's repair is tested against.
-  it.each(cases)("$name", ({ desired, waits_for, direction, expected }) =>
+describe("sweep", () => {
+  // B waits for A, and C waits for B.
+  const order = ["A", "X", "B", "Y", "C", "Z", "W"];
+  const waits = { B: ["A"], C: ["B"] };
+  it("lands the dragged task exactly at the slot and brings what it reached", () =>
+    expect(sweep(order, waits, "A", 3)).toEqual({
+      order: ["X", "Y", "Z", "A", "B", "C", "W"],
+      block: ["A", "B", "C"],
+    }));
+  it("leaves a linked task alone until it is reached", () =>
+    expect(sweep(order, waits, "A", 1)).toEqual({
+      order: ["X", "A", "B", "Y", "C", "Z", "W"],
+      block: ["A"],
+    }));
+  it("gathers prerequisites going up and stops at the top", () =>
+    expect(sweep(order, waits, "C", 0)).toEqual({
+      order: ["A", "B", "C", "X", "Y", "Z", "W"],
+      block: ["A", "B", "C"],
+    }));
+  it("stops at the bottom like a pushed stack", () =>
     expect(
-      repair(
-        desired,
-        waits_for as Record<string, string[]>,
-        direction as "down" | "up",
-      ),
-    ).toEqual(expected),
-  );
-  it("refuses a loop", () =>
-    expect(() => repair(["A", "B"], { A: ["B"], B: ["A"] }, "down")).toThrow());
+      sweep(["V", "K", "G", "I", "S"], { I: ["V", "G"], S: ["I"] }, "V", 4)
+        .order,
+    ).toEqual(["K", "G", "V", "I", "S"]));
+  it("returns the same order for a drop in place", () =>
+    expect(sweep(order, waits, "A", 0)).toEqual({ order, block: ["A"] }));
+  it("keeps every link for every task and every slot", () => {
+    for (const id of order)
+      for (let slot = 0; slot < order.length; slot++) {
+        const result = sweep(order, waits, id, slot).order;
+        const at = (t: string) => result.indexOf(t);
+        for (const [t, prerequisites] of Object.entries(waits))
+          for (const p of prerequisites) expect(at(p)).toBeLessThan(at(t));
+      }
+  });
 });
 
-describe("moveWithLinks", () => {
-  it("pulls a prerequisite up with a dependent dragged above it", () => {
-    const list = [
-      task("X", 1),
-      task("B", 2),
-      task("Y", 3),
-      waiting("A", 4, ["B"]),
-    ];
-    expect(moveWithLinks(list, "A", "X")).toEqual(["B", "A", "X", "Y"]);
-  });
-  it("pushes a dependent down with a prerequisite dragged below it", () => {
-    const list = [
-      task("B", 1),
-      task("X", 2),
-      waiting("A", 3, ["B"]),
-      task("Y", 4),
-    ];
-    expect(moveWithLinks(list, "B", "Y")).toEqual(["X", "Y", "B", "A"]);
-  });
-  it("is the plain move without links", () =>
-    expect(
-      moveWithLinks([task("a", 1), task("b", 2), task("c", 3)], "c", "a"),
-    ).toEqual(["c", "a", "b"]));
-  it("ignores a drop in place", () =>
-    expect(moveWithLinks([task("a", 1), task("b", 2)], "b", "b")).toBeNull());
+describe("slotAt", () => {
+  it("counts the rows whose middle is above the top", () =>
+    expect([0, 21, 61].map((top) => slotAt(top, [40, 40, 40]))).toEqual([
+      0, 1, 2,
+    ]));
+  it("passes a taller row only after its middle", () =>
+    expect([80, 91].map((top) => slotAt(top, [40, 100, 40]))).toEqual([1, 2]));
 });
 
 describe("linkGroups", () => {
