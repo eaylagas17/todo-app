@@ -2,8 +2,10 @@ import { type FormEvent, useState } from "react";
 import { hasStatus, type Task } from "../api.ts";
 import {
   useAddSubtask,
+  useCategories,
   useDeleteSubtask,
   useDeleteTask,
+  useSetCategory,
   useToggleSubtask,
   useToggleTask,
   useUpdateTask,
@@ -23,6 +25,8 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
   const update = useUpdateTask();
   const toggle = useToggleTask();
   const remove = useDeleteTask();
+  const categories = useCategories();
+  const file = useSetCategory();
   const trimmed = title.trim();
   // Only the fields that changed are sent, so a save can't overwrite an edit made elsewhere.
   const changes = {
@@ -34,7 +38,11 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
   const completed = toggle.isPending
     ? toggle.variables.completed
     : task.completed;
-  const error = update.error ?? toggle.error ?? refreshError;
+  // Like completed: the pending choice shows at once, wherever this editor reads its task from.
+  const categoryId = file.isPending
+    ? file.variables.category_id
+    : task.category_id;
+  const error = update.error ?? toggle.error ?? file.error ?? refreshError;
 
   if (hasStatus(update.error, 404) || hasStatus(toggle.error, 404))
     return <h2>Task not found</h2>;
@@ -72,6 +80,25 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
             maxLength={2000}
             rows={4}
           />
+        </label>
+        <label>
+          Category
+          <select
+            value={categoryId ?? ""}
+            onChange={(event) =>
+              file.mutate({
+                id: task.id,
+                category_id: event.target.value || null,
+              })
+            }
+          >
+            <option value="">None</option>
+            {categories.data?.map((category) => (
+              <option key={category.id} value={category.id}>
+                {category.name}
+              </option>
+            ))}
+          </select>
         </label>
         <label className="check">
           <input

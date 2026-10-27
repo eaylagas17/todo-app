@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "./api.ts";
 import {
+  allOf,
   byPosition,
+  inCategory,
   matchesSearch,
   subtaskProgress,
   moveTask,
@@ -15,6 +17,7 @@ const task = (id: string, position: number, title = id): Task => ({
   completed: false,
   position,
   subtasks: [],
+  category_id: null,
 });
 
 describe("positionBetween", () => {
@@ -96,4 +99,18 @@ describe("subtaskProgress", () => {
         ],
       }),
     ).toBe("2 of 3"));
+});
+
+describe("allOf and inCategory", () => {
+  const work = { ...task("1", 1, "Report"), category_id: "work" };
+  const home = { ...task("2", 2, "Laundry"), category_id: "home" };
+  it("inCategory(null) matches everything", () =>
+    expect([work, home].filter(inCategory(null))).toEqual([work, home]));
+  it("inCategory(id) matches that category only", () =>
+    expect([work, home].filter(inCategory("home"))).toEqual([home]));
+  it("allOf passes only what every test passes", () => {
+    const both = allOf(inCategory("work"), matchesSearch("rep"));
+    expect([work, home].filter(both)).toEqual([work]);
+    expect([work, home].filter(allOf<Task>())).toEqual([work, home]);
+  });
 });

@@ -50,3 +50,15 @@ export function subtaskProgress(task: Task): string | null {
   const done = task.subtasks.filter((subtask) => subtask.completed).length;
   return `${done} of ${task.subtasks.length}`;
 }
+
+/** A filter for one category; null means "All". */
+export const inCategory =
+  (id: string | null) =>
+  (task: Task): boolean =>
+    id === null || task.category_id === id;
+
+/** Composes filters: an item passes only if it passes every one. allOf() passes everything. */
+export const allOf =
+  <T>(...tests: ((item: T) => boolean)[]) =>
+  (item: T): boolean =>
+    tests.every((test) => test(item));

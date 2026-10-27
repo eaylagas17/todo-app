@@ -18,6 +18,10 @@ services:
 
   app:
     build: .
+    # The TypeSafe key for AI categories, if you have one; without the file, AI is off.
+    env_file:
+      - path: backend/.env
+        required: false
     environment:
       DATABASE_URL: postgresql+psycopg://todo:todo@db:5432/todo
       SEED_DEMO: "1"

@@ -8,13 +8,19 @@ import {
 import {
   ApiError,
   addSubtask,
+  type Category,
+  createCategory,
   createTask,
+  deleteCategory,
   deleteSubtask,
   deleteTask,
   getTask,
+  listCategories,
   listTasks,
   NetworkError,
+  renameCategory,
   type Subtask,
+  suggestCategory,
   type Task,
   type TaskChanges,
   updateSubtask,
@@ -45,6 +51,7 @@ export const createQueryClient = (retries = 3) =>
   });
 
 export const TASKS_KEY = ["tasks"] as const;
+export const CATEGORIES_KEY = ["categories"] as const;
 export const taskKey = (id: string) => [...TASKS_KEY, id] as const;
 
 const withChanges = (tasks: Task[], id: string, changes: TaskChanges) =>
@@ -88,6 +95,7 @@ const stillCurrent = (started?: { session?: string }) =>
 // Not optimistic: the new task's id comes from the server.
 export function useCreateTask() {
   const queryClient = useQueryClient();
+  const suggest = useSuggestCategory();
   return useMutation({
     // Wrapped: TanStack Query passes a second argument, which createTask would take as the description.
     mutationFn: (title: string) => createTask(title),
@@ -98,12 +106,15 @@ export function useCreateTask() {
         TASKS_KEY,
         (tasks) => tasks && [...tasks, task],
       );
+      // After the create, never before it: adding a task never waits for the AI.
+      suggest.mutate(task.id);
     },
   });
 }
 
 export function useUpdateTask() {
   const queryClient = useQueryClient();
+  const suggest = useSuggestCategory();
   return useMutation({
     mutationFn: ({
       id,
@@ -113,13 +124,36 @@ export function useUpdateTask() {
       changes: Pick<TaskChanges, "title" | "description">;
     }) => updateTask(id, changes),
     onMutate: startSession,
-    onSuccess: (task, _variables, started) => {
+    onSuccess: (task, { changes }, started) => {
       if (!stillCurrent(started)) return;
-      queryClient.setQueryData(taskKey(task.id), task);
-      queryClient.setQueryData<Task[]>(
-        TASKS_KEY,
-        (tasks) => tasks && withChanges(tasks, task.id, task),
-      );
+      writeTask(queryClient, task);
+      // A new title may now say what it's about; a category the person chose is never replaced.
+      if ("title" in changes && task.category_id === null)
+        suggest.mutate(task.id);
+    },
+  });
+}
+
+/** The server's copy of one task, into the list and into its own cache entry. */
+function writeTask(queryClient: QueryClient, task: Task) {
+  queryClient.setQueryData(taskKey(task.id), task);
+  queryClient.setQueryData<Task[]>(
+    TASKS_KEY,
+    (tasks) => tasks && withChanges(tasks, task.id, task),
+  );
+}
+
+/**
+ * Asks for a category in the background. Quiet by design (spec §9): no key, a slow Jev or a
+ * limit leave the task as it was, and nothing on screen reads this mutation's error.
+ */
+export function useSuggestCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) => suggestCategory(taskId),
+    onMutate: startSession,
+    onSuccess: (task, _taskId, started) => {
+      if (stillCurrent(started)) writeTask(queryClient, task);
     },
   });
 }
@@ -230,6 +264,67 @@ export const useDeleteSubtask = () =>
         subtasks.filter((s) => s.id !== subtaskId),
       ),
   );
+
+export const useSetCategory = () =>
+  useOptimisticTaskMutation(
+    ({ id, category_id }: { id: string; category_id: string | null }) =>
+      updateTask(id, { category_id }),
+    (tasks, { id, category_id }) => withChanges(tasks, id, { category_id }),
+  );
+
+export const useCategories = () =>
+  useQuery({ queryKey: CATEGORIES_KEY, queryFn: listCategories });
+
+// Category changes are rare and wait for the server; each writes its answer into the cache.
+export function useCreateCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (name: string) => createCategory(name),
+    onMutate: startSession,
+    onSuccess: (category, _name, started) => {
+      if (!stillCurrent(started)) return;
+      queryClient.setQueryData<Category[]>(
+        CATEGORIES_KEY,
+        (categories) => categories && [...categories, category],
+      );
+    },
+  });
+}
+
+export function useRenameCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, name }: { id: string; name: string }) =>
+      renameCategory(id, name),
+    onMutate: startSession,
+    onSuccess: (renamed, _variables, started) => {
+      if (!stillCurrent(started)) return;
+      queryClient.setQueryData<Category[]>(CATEGORIES_KEY, (categories) =>
+        categories?.map((c) => (c.id === renamed.id ? renamed : c)),
+      );
+    },
+  });
+}
+
+export function useDeleteCategory() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (id: string) => deleteCategory(id),
+    onMutate: startSession,
+    onSuccess: (_nothing, id, started) => {
+      if (!stillCurrent(started)) return;
+      queryClient.setQueryData<Category[]>(CATEGORIES_KEY, (categories) =>
+        categories?.filter((c) => c.id !== id),
+      );
+      // The server uncategorised its tasks (E37); the cache does the same, without a refetch.
+      queryClient.setQueryData<Task[]>(TASKS_KEY, (tasks) =>
+        tasks?.map((t) =>
+          t.category_id === id ? { ...t, category_id: null } : t,
+        ),
+      );
+    },
+  });
+}
 
 /**
  * The error from the most recent toggle, move or delete, if that one failed. Read from the

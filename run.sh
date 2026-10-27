@@ -13,9 +13,12 @@ done
 # npm ci refuses a Node version outside "engines" in frontend/package.json (engine-strict in .npmrc).
 [ -d frontend/node_modules ] || (cd frontend && npm ci)
 
+# backend/.env (git-ignored) holds TYPESAFE_API_KEY for AI categories; without it, AI is off.
+ENV_FILE=$([ -f backend/.env ] && echo --env-file .env || true)
+
 # Ctrl+C (or either server stopping) stops both.
 trap 'kill 0' EXIT
-(cd backend && SEED_DEMO=1 uv run fastapi run app/main.py --host 127.0.0.1 --port 8000) &
+(cd backend && SEED_DEMO=1 uv run $ENV_FILE fastapi run app/main.py --host 127.0.0.1 --port 8000) &
 (cd frontend && npm run dev -- --port 5173 --strictPort) &
 echo "Open http://localhost:5173 and sign in as demo@example.com / demo-password"
 wait

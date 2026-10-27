@@ -1,0 +1,21 @@
+{
+  "model": "jev-1.14.0",
+  "answers": {
+    "category": {
+      "type": "choice",
+      "choice": "c3",
+      "confidence": 0.6,
+      "probabilities": {
+        "c1": 0.24,
+        "c2": 0.07,
+        "c3": 0.68,
+        "c4": 0.0,
+        "c5": 0.01
+      }
+    }
+  },
+  "usage": {
+    "input_tokens": 362,
+    "output_tokens": 58
+  }
+}

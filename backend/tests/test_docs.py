@@ -29,6 +29,17 @@ def test_docs_list_the_errors_each_endpoint_returns(client):
         "POST /api/tasks/{task_id}/subtasks": {"400", "401", "404"},
         "PATCH /api/tasks/{task_id}/subtasks/{subtask_id}": {"400", "401", "404"},
         "DELETE /api/tasks/{task_id}/subtasks/{subtask_id}": {"400", "401", "404"},
+        "POST /api/tasks/{task_id}/category-suggestion": {
+            "400",
+            "401",
+            "404",
+            "429",
+            "503",
+        },
+        "GET /api/categories": {"401"},
+        "POST /api/categories": {"400", "401", "409"},
+        "PATCH /api/categories/{category_id}": {"400", "401", "404", "409"},
+        "DELETE /api/categories/{category_id}": {"400", "401", "404"},
         "GET /api/health": {"503"},
     }
 
