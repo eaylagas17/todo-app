@@ -75,9 +75,10 @@ const stillCurrent = (started?: { session?: string }) =>
 export function useCreateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: createTask,
+    // Wrapped: TanStack Query passes a second argument, which createTask would take as the description.
+    mutationFn: (title: string) => createTask(title),
     onMutate: startSession,
-    onSuccess: (task, _description, started) => {
+    onSuccess: (task, _title, started) => {
       if (!stillCurrent(started)) return;
       queryClient.setQueryData<Task[]>(
         TASKS_KEY,
@@ -90,8 +91,13 @@ export function useCreateTask() {
 export function useUpdateTask() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, description }: { id: string; description: string }) =>
-      updateTask(id, { description }),
+    mutationFn: ({
+      id,
+      changes,
+    }: {
+      id: string;
+      changes: Pick<TaskChanges, "title" | "description">;
+    }) => updateTask(id, changes),
     onMutate: startSession,
     onSuccess: (task, _variables, started) => {
       if (!stillCurrent(started)) return;

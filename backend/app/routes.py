@@ -82,7 +82,7 @@ def list_tasks(user: SignedInUser, db: DbSession) -> list[Task]:
 def create_task(
     new: TaskCreate, user: SignedInUser, db: DbSession, response: Response
 ) -> Task:
-    task = crud.create_task(db, user, new.description)
+    task = crud.create_task(db, user, new.title, new.description)
     response.headers["Location"] = f"{router.prefix}/tasks/{task.id}"
     return task
 

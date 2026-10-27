@@ -44,10 +44,11 @@ export function seedUser(
 const tasksOf = (ownerId: string) =>
   [...db.tasks.values()].filter((entry) => entry.ownerId === ownerId);
 
-function addTask(ownerId: string, description: string): Task {
+function addTask(ownerId: string, title: string, description = ""): Task {
   const top = Math.max(0, ...tasksOf(ownerId).map(({ task }) => task.position));
   const task = {
     id: nextId(),
+    title,
     description,
     completed: false,
     position: top + 1,
@@ -56,9 +57,9 @@ function addTask(ownerId: string, description: string): Task {
   return { ...task };
 }
 
-/** Tasks for an existing session, at positions 1, 2, 3… */
-export function seedTasks(auth: AuthResult, descriptions: string[]): Task[] {
-  return descriptions.map((description) => addTask(auth.user.id, description));
+/** Tasks for an existing session, at positions 1, 2, 3…, each with an empty description. */
+export function seedTasks(auth: AuthResult, titles: string[]): Task[] {
+  return titles.map((title) => addTask(auth.user.id, title));
 }
 
 /** Holds a handler until the test calls release(), to look at the screen mid-request. */
@@ -129,13 +130,19 @@ export const server = setupServer(
     return HttpResponse.json(tasksOf(ownerId).map(({ task }) => ({ ...task })));
   }),
   http.post("/api/tasks", async ({ request }) => {
-    const body = (await request.json()) as { description: string };
+    const body = (await request.json()) as {
+      title: string;
+      description?: string;
+    };
     record(request, body);
     const ownerId = signedInUser(request);
     if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
-    return HttpResponse.json(addTask(ownerId, body.description.trim()), {
-      status: 201,
-    });
+    return HttpResponse.json(
+      addTask(ownerId, body.title.trim(), body.description),
+      {
+        status: 201,
+      },
+    );
   }),
   http.get("/api/tasks/:id", ({ request, params }) => {
     record(request);

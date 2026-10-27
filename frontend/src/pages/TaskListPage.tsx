@@ -8,12 +8,12 @@ export function TaskListPage() {
   const tasks = useTasks();
   const create = useCreateTask();
   const changeError = useTaskChangeError();
-  const [description, setDescription] = useState("");
+  const [title, setTitle] = useState("");
   const [query, setQuery] = useState("");
 
   function add(event: FormEvent) {
     event.preventDefault();
-    create.mutate(description.trim(), { onSuccess: () => setDescription("") });
+    create.mutate(title.trim(), { onSuccess: () => setTitle("") });
   }
 
   return (
@@ -24,15 +24,12 @@ export function TaskListPage() {
           <input
             aria-label="New task"
             placeholder="New task"
-            value={description}
-            onChange={(event) => setDescription(event.target.value)}
-            maxLength={500}
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            maxLength={200}
             required
           />
-          <button
-            type="submit"
-            disabled={!description.trim() || create.isPending}
-          >
+          <button type="submit" disabled={!title.trim() || create.isPending}>
             Add task
           </button>
         </fieldset>

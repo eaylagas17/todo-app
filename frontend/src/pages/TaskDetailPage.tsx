@@ -68,13 +68,19 @@ function TaskForm({
   task: Task;
   refreshError: Error | null;
 }) {
+  const [title, setTitle] = useState(task.title);
   const [description, setDescription] = useState(task.description);
   const update = useUpdateTask();
   const toggle = useToggleTask();
   const remove = useDeleteTask();
   const navigate = useNavigate();
-  const trimmed = description.trim();
-  const changed = trimmed !== task.description;
+  const trimmed = title.trim();
+  // Only the fields that changed are sent, so a save can't overwrite an edit made elsewhere.
+  const changes = {
+    ...(trimmed !== task.title && { title: trimmed }),
+    ...(description !== task.description && { description }),
+  };
+  const changed = Object.keys(changes).length > 0;
   // The optimistic toggle writes to the list cache; here the pending value is shown directly.
   const completed = toggle.isPending
     ? toggle.variables.completed
@@ -86,7 +92,7 @@ function TaskForm({
 
   function save(event: FormEvent) {
     event.preventDefault();
-    update.mutate({ id: task.id, description: trimmed });
+    update.mutate({ id: task.id, changes });
   }
 
   function deleteTask() {
@@ -103,13 +109,21 @@ function TaskForm({
       <h1>Task details</h1>
       <form onSubmit={save}>
         <label>
+          Title
+          <input
+            value={title}
+            onChange={(event) => setTitle(event.target.value)}
+            maxLength={200}
+            required
+          />
+        </label>
+        <label>
           Description
           <textarea
             value={description}
             onChange={(event) => setDescription(event.target.value)}
-            maxLength={500}
-            rows={3}
-            required
+            maxLength={2000}
+            rows={4}
           />
         </label>
         <label className="check">

@@ -38,5 +38,8 @@ const normalize = (text: string) =>
 
 export function matchesSearch(query: string): (task: Task) => boolean {
   const needle = normalize(query);
-  return (task) => normalize(task.description).includes(needle);
+  return (task) =>
+    [task.title, task.description].some((text) =>
+      normalize(text).includes(needle),
+    );
 }
