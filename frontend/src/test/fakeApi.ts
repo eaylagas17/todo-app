@@ -307,14 +307,18 @@ export const server = setupServer(
   }),
   // Mirrors crud.set_order: exactly the caller's tasks, in an order that keeps every link.
   http.put("/api/task-order", async ({ request }) => {
-    const { ids } = (await request.json()) as { ids: string[] };
-    record(request, { ids });
+    const { ids, previous } = (await request.json()) as {
+      ids: string[];
+      previous: string[];
+    };
+    record(request, { ids, previous });
     const ownerId = signedInUser(request);
     if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
     const { tasks, order, waitsFor } = ownList(ownerId);
     if (
       ids.length !== new Set(ids).size ||
-      [...ids].sort().join() !== [...order].sort().join()
+      [...ids].sort().join() !== [...order].sort().join() ||
+      previous.join() !== order.join()
     )
       return fail(
         409,

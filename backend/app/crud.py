@@ -191,11 +191,15 @@ def unlink(db: Session, task: Task, depends_on_id: uuid.UUID) -> None:
         delete(db, existing)
 
 
-def set_order(db: Session, owner: User, ids: list[uuid.UUID]) -> list[Task]:
+def set_order(
+    db: Session, owner: User, ids: list[uuid.UUID], previous: list[uuid.UUID]
+) -> list[Task]:
     """Saves the whole list's order. Checks it; never re-sorts it."""
     tasks = list_tasks(db, owner)
     if len(ids) != len(set(ids)) or set(ids) != {task.id for task in tasks}:
         raise OrderStale  # a task missing, extra, repeated or someone else's (E43)
+    if previous != [task.id for task in tasks]:
+        raise OrderStale  # the drag started from an order another tab has since changed
     if breaks_link(ids, owner_graph(db, owner)):
         raise OrderBreaksLink  # (E44)
     _renumber(tasks, ids)

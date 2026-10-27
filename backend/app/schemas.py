@@ -95,9 +95,10 @@ class LinkIn(Input):
 
 
 class OrderIn(Input):
-    """The signed-in user's whole list, top to bottom."""
+    """The signed-in user's whole list, top to bottom, and the order the drag started from."""
 
     ids: list[uuid.UUID]
+    previous: list[uuid.UUID]
 
 
 class CategoryIn(Input):
