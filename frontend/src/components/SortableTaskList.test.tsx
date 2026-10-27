@@ -286,3 +286,27 @@ it("a tall task travelling with the dragged one counts as part of the group", as
     }),
   );
 });
+
+it("the handle captures the pointer, so a release outside the window still ends the drag", async () => {
+  const capture = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "setPointerCapture",
+  );
+  Object.defineProperty(Element.prototype, "setPointerCapture", {
+    value: capture,
+    configurable: true,
+  });
+  try {
+    seedTasks(ada, ["a", "b"]);
+    renderApp("/tasks", { as: ada });
+    fireEvent.pointerDown(await handle("a"), { clientY: 20, pointerId: 7 });
+    expect(capture).toHaveBeenCalledWith(7);
+  } finally {
+    if (original)
+      Object.defineProperty(Element.prototype, "setPointerCapture", original);
+    else
+      delete (Element.prototype as { setPointerCapture?: unknown })
+        .setPointerCapture;
+  }
+});
