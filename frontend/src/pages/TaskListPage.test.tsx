@@ -76,7 +76,9 @@ it("creates one task even if Add task is clicked twice", async () => {
   await user.click(screen.getByRole("button", { name: "Add task" }));
   release();
   await screen.findByRole("link", { name: "Buy milk" });
-  expect(requests.filter((r) => r.method === "POST")).toHaveLength(1);
+  expect(
+    requests.filter((r) => r.method === "POST" && r.path === "/api/tasks"),
+  ).toHaveLength(1);
 });
 
 it("shows task text literally, even if it looks like HTML", async () => {
