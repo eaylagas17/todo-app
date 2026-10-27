@@ -17,6 +17,7 @@ afterEach(() => {
   resetDb();
   clearAuth();
   localStorage.clear();
+  delete document.documentElement.dataset.theme;
   vi.restoreAllMocks();
   vi.useRealTimers();
   onlineManager.setOnline(true);
