@@ -90,6 +90,33 @@ class AiBudgetReached(AppError):
     message = "AI suggestions are paused for this month"
 
 
+class LinkSelf(AppError):
+    status_code = 400
+    code = "LINK_SELF"
+    message = "A task can't wait for itself"
+
+
+class LinkCycle(AppError):
+    status_code = 409
+    code = "LINK_CYCLE"
+
+    def __init__(self, titles: list[str]):
+        super().__init__()
+        self.message = "That would make a loop: " + " → ".join(titles)
+
+
+class OrderStale(AppError):
+    status_code = 409
+    code = "ORDER_STALE"
+    message = "Your list changed elsewhere. Refresh and try again."
+
+
+class OrderBreaksLink(AppError):
+    status_code = 409
+    code = "ORDER_BREAKS_LINK"
+    message = "A task can't move above a task it waits for."
+
+
 class ServiceUnavailable(AppError):
     status_code = 503
     code = "SERVICE_UNAVAILABLE"

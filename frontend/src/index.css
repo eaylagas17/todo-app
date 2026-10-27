@@ -16,6 +16,8 @@
   --focus: #0a6cff;
   --radius: 12px;
   --header: 3.5rem;
+  --step-bg: 86%; /* lightness of a step badge, in its group's hue */
+  --step-ink: 22%;
   font:
     17px/1.4 -apple-system,
     BlinkMacSystemFont,
@@ -38,6 +40,8 @@
     --link: #ffd60a; /* yellow text is fine on near-black: 13:1 */
     --danger: #ff6961;
     --focus: #4c9bff;
+    --step-bg: 32%;
+    --step-ink: 90%;
   }
 }
 
@@ -72,12 +76,14 @@ a {
 
 button,
 input,
+select,
 textarea {
   font: inherit;
   color: var(--ink);
 }
 
 input:not([type="checkbox"]),
+select,
 textarea {
   width: 100%;
   min-height: 44px;
@@ -191,6 +197,7 @@ label {
 }
 
 .brand {
+  white-space: nowrap;
   font-weight: 800;
   color: var(--ink);
   text-decoration: none;
@@ -278,12 +285,14 @@ label {
 }
 
 .task > a,
+.task > .dot,
 .task > .delete {
   align-self: stretch;
   border-bottom: 1px solid var(--sep);
 }
 
 .task:last-child > a,
+.task:last-child > .dot,
 .task:last-child > .delete {
   border-bottom: 0;
 }
@@ -325,21 +334,28 @@ label {
 }
 
 .task .title {
+  justify-self: start;
+  max-width: 100%;
   font-weight: 600;
+  /* The strike-through is a 1.5px line drawn as a background, so it can grow (accent C). */
+  background: linear-gradient(currentColor, currentColor) no-repeat 0 55% / 0
+    1.5px;
 }
 
-/* The description's first line, grey and smaller: the detail is there if you want it. */
+/* The description's first line, grey and smaller: the detail is there if you want it.
+   Always the text column: without a category, auto-placement would put it beside the title. */
 .task .sub {
+  grid-column: 1;
   color: var(--sub);
   font-size: 0.875em;
 }
 
-.task .sub > span + span::before {
+.task .sub > :not(.chain) + span::before {
   content: " · ";
 }
 
 .done .title {
-  text-decoration: line-through;
+  background-size: 100% 1.5px;
   color: var(--sub);
 }
 
@@ -416,8 +432,13 @@ label {
   white-space: nowrap;
 }
 
-/* Phones: the same panel becomes a sheet from the bottom. Same DOM, only CSS changes. */
+/* Phones: the same panel becomes a sheet from the bottom. Same DOM, only CSS changes. The
+   row's Delete button gives its width to the title; deleting happens in the sheet. */
 @media (max-width: 699px) {
+  .task > .delete {
+    display: none;
+  }
+
   .panel {
     position: fixed;
     inset: auto 0 0;
@@ -550,4 +571,92 @@ label {
   .categories.open > .toggle {
     margin-bottom: 0.5rem;
   }
+}
+
+/* Linked tasks: a step number in the group's colour, a chain icon, and a dot to link from. */
+.step {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.step[role="img"] {
+  background: hsl(var(--hue) 70% var(--step-bg));
+  color: hsl(var(--hue) 60% var(--step-ink));
+}
+
+/* The icon is a mask, so its colour comes from CSS: the group's opposite hue, dark enough to
+   keep 3:1 against the card. */
+.chain {
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.3em;
+  vertical-align: -0.1em;
+  background: hsl(calc(var(--hue) + 180) 55% 38%);
+  mask: url("./assets/chain.png") center / contain no-repeat;
+}
+
+.dot {
+  flex: none;
+  width: 28px;
+  min-height: 44px;
+  padding: 0;
+  background: transparent;
+  touch-action: none;
+  cursor: crosshair;
+}
+
+.dot::after {
+  content: "";
+  display: block;
+  width: 10px;
+  height: 10px;
+  margin: auto;
+  border: 2px solid var(--sub);
+  border-radius: 50%;
+}
+
+.linking,
+.linking * {
+  cursor: crosshair;
+}
+
+.linking .task:hover {
+  outline: 2px dashed var(--sub);
+  outline-offset: -2px;
+}
+
+.links h3 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.links ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.links li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--sep);
+}
+
+.links select {
+  min-height: 44px;
+  margin: 0.25rem 0 1rem;
+}
+
+.credit {
+  margin-top: 2rem;
+  font-size: 0.75rem;
+  color: var(--sub);
 }
