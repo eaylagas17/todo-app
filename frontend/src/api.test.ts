@@ -9,7 +9,7 @@ import {
   TIMEOUT_MESSAGE,
 } from "./api.ts";
 import { getAuth, saveAuth } from "./auth.ts";
-import { server } from "./test/fakeApi.ts";
+import { gate, server } from "./test/fakeApi.ts";
 
 it("sends JSON and returns the parsed body", async () => {
   server.use(
@@ -118,4 +118,28 @@ it("signs the user out when the server rejects their token", async () => {
   );
   await expect(request("/tasks")).rejects.toMatchObject({ status: 401 });
   expect(getAuth()).toBeNull();
+});
+
+it("a late 401 for a previous session doesn't sign out the next user", async () => {
+  const { wait, release } = gate();
+  server.use(
+    http.get("/api/tasks", async () => {
+      await wait;
+      return HttpResponse.json(
+        {
+          error: { code: "AUTH_REQUIRED", message: "Authentication required" },
+        },
+        { status: 401 },
+      );
+    }),
+  );
+  saveAuth({ user: { id: "1", email: "ada@example.com" }, token: "ada-token" });
+  const late = request("/tasks");
+  saveAuth({
+    user: { id: "2", email: "grace@example.com" },
+    token: "grace-token",
+  });
+  release();
+  await expect(late).rejects.toMatchObject({ status: 401 });
+  expect(getAuth()?.token).toBe("grace-token");
 });
