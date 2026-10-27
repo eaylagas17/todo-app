@@ -55,9 +55,8 @@ def suggest_category(db: Session, user: User, task: Task, http: httpx.Client) ->
     if task.category_id is not None:
         return task
 
-    # Lock the user's row so two requests at once can't both pass the limit (a no-op on
-    # SQLite, which allows one writer at a time anyway).
-    db.execute(select(User.id).where(User.id == user.id).with_for_update())
+    # Lock the user's row so two requests at once can't both pass the limit.
+    crud.lock_owner(db, user)
     now = utcnow()
     if (
         _calls_since(db, user, now - timedelta(minutes=1)) >= PER_MINUTE

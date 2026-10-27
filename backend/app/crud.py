@@ -139,6 +139,15 @@ def update_subtask(db: Session, subtask: Subtask, changes: dict) -> Subtask:
     return subtask
 
 
+def lock_owner(db: Session, owner: User) -> None:
+    """One write at a time per person: a second request waits here until the first commits.
+
+    SELECT ... FOR UPDATE on the user's row. SQLAlchemy leaves FOR UPDATE out on SQLite, which
+    allows only one writer at a time anyway.
+    """
+    db.execute(select(User.id).where(User.id == owner.id).with_for_update())
+
+
 def owner_graph(db: Session, owner: User) -> dict[uuid.UUID, list[uuid.UUID]]:
     """Every link of one user as an adjacency list, task → what it waits for. One query."""
     rows = db.execute(
@@ -162,6 +171,9 @@ def link(db: Session, owner: User, task: Task, depends_on_id: uuid.UUID) -> list
     """ "task waits for depends_on_id". Returns the whole list, in its (possibly repaired) order."""
     if depends_on_id == task.id:
         raise LinkSelf
+    lock_owner(
+        db, owner
+    )  # two opposite links at once must not both pass the loop check
     target = get_task(db, owner, depends_on_id)  # someone else's task is 404
     graph = owner_graph(db, owner)
     if target.id in graph[task.id]:
@@ -195,6 +207,9 @@ def set_order(
     db: Session, owner: User, ids: list[uuid.UUID], previous: list[uuid.UUID]
 ) -> list[Task]:
     """Saves the whole list's order. Checks it; never re-sorts it."""
+    lock_owner(
+        db, owner
+    )  # two saves at once: the second sees the first's order, and is stale
     tasks = list_tasks(db, owner)
     if len(ids) != len(set(ids)) or set(ids) != {task.id for task in tasks}:
         raise OrderStale  # a task missing, extra, repeated or someone else's (E43)
