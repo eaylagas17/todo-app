@@ -15,6 +15,7 @@ docker compose up --build
 ```
 
 Open http://localhost:8000. One container serves the app and the API; Postgres runs beside it.
+After pulling schema changes, reset the local database: `docker compose down -v`.
 
 **Without Docker** (uses SQLite; needs Node 24.15+, 22.22+ or 26+):
 
@@ -28,8 +29,8 @@ Open http://localhost:5173. Ctrl+C stops everything.
 **Tests:**
 
 ```bash
-cd backend && uv run pytest --cov=app        # 52 tests
-cd ../frontend && npm ci && npm test         # 76 tests
+cd backend && uv run pytest --cov=app        # 57 tests
+cd ../frontend && npm ci && npm test         # 79 tests
 ```
 
 ## Summary
@@ -86,7 +87,7 @@ flowchart LR
 All under `/api` (interactive docs at http://localhost:8000/docs). Task routes need `Authorization: Bearer <token>`.
 
 - `POST /users`, `POST /sessions`, `DELETE /sessions/current`: sign up, sign in, sign out
-- `GET /tasks`, `POST /tasks`, `GET /tasks/{id}`, `PATCH /tasks/{id}`, `DELETE /tasks/{id}`: task CRUD (PATCH also ticks and reorders)
+- `GET /tasks`, `POST /tasks {title, description?}`, `GET /tasks/{id}`, `PATCH /tasks/{id}`, `DELETE /tasks/{id}`: task CRUD (PATCH also ticks and reorders)
 - `GET /health`: 200, or 503 when the database is unreachable
 
 Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` for validation): 400 validation, 401 not signed in, 404 not found, 409 email taken.
@@ -108,7 +109,7 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 | E5 | Wrong password or unknown email | The same 401 for both |
 | E6–E7 | Missing or expired token; sign out on one device | 401; only that session ends |
 | E8–E9 | Unknown URL or method; a crash | Same error shape; no internals leaked |
-| E10–E15 | Blank or long text; another user's task; bad id; `null` or unknown fields; empty PATCH; SQL-looking text | 400 / 404 / unchanged / stored literally |
+| E10–E15 | Blank or over-long title (200) or description (2000); another user's task; bad id; `null` or unknown fields; empty PATCH; SQL-looking text | 400 / 404 / unchanged / stored literally |
 | E16–E17 | Offline, timeout, or a non-JSON error page | Clear messages, never a crash |
 | E18–E20 | Expired saved session; corrupt storage; a screen crash | Back to sign-in; still works; "Something went wrong" + Reload |
 | E21–E23 | Double-click Add; only spaces; HTML-looking text | One task; button disabled; shown literally |
