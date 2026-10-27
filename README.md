@@ -4,6 +4,8 @@
 
 A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks in a side panel or on their own screen. Tasks have subtasks and categories (suggested by AI), and can wait for each other; a graph view draws those links. A ticked task waits five seconds for an undo, then moves under Recently completed. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
 
+**Try it live: https://todo-app.calmforest-9fc6134c.centralus.azurecontainerapps.io** (on Azure; after a quiet spell, the first load takes a few seconds while it wakes up).
+
 **Demo account:** `demo@example.com` / `demo-password` (created automatically, with a small example plan). The **Features** tab lists every feature with a way to try it.
 
 ## Run it on a Mac
@@ -194,7 +196,7 @@ That works because a schema change only adds things (a table, a nullable column,
 ```bash
 # 1. Tag the release and publish its image
 git tag v1.1.0 && git push origin v1.1.0
-SHA=$(git rev-parse --short v1.1.0)
+SHA=$(git rev-parse --short 'v1.1.0^{commit}')   # the commit; an annotated tag has its own id
 docker buildx build --platform linux/amd64 --build-arg GIT_SHA=$SHA \
   -t ghcr.io/eaylagas17/todo-app:$SHA --push .
 
