@@ -63,7 +63,7 @@ it("moves a task with the keyboard", async () => {
     expect(requests).toContainEqual({
       method: "PUT",
       path: "/api/task-order",
-      body: { ids: [b.id, a.id, c.id] },
+      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
     }),
   );
 });

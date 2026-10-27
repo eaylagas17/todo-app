@@ -101,14 +101,19 @@ it("saves a move on the server", async () => {
     move: useReorder(),
   }));
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
-  act(() => result.current.move.mutate([a.id, c.id, b.id]));
+  act(() =>
+    result.current.move.mutate({
+      ids: [a.id, c.id, b.id],
+      previous: [a.id, b.id, c.id],
+    }),
+  );
   await waitFor(() =>
     expect(titles(result.current.list.data)).toEqual(["a", "c", "b"]),
   );
   expect(requests).toContainEqual({
     method: "PUT",
     path: "/api/task-order",
-    body: { ids: [a.id, c.id, b.id] },
+    body: { ids: [a.id, c.id, b.id], previous: [a.id, b.id, c.id] },
   });
 });
 
@@ -126,15 +131,17 @@ it("applies two quick moves in a row", async () => {
   }));
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
   act(() =>
-    result.current.move.mutate(
-      moveWithLinks(result.current.list.data!, c.id, a.id)!,
-    ),
+    result.current.move.mutate({
+      ids: moveWithLinks(result.current.list.data!, c.id, a.id)!,
+      previous: result.current.list.data!.map((t) => t.id),
+    }),
   );
   await waitFor(() => expect(result.current.list.data?.[0].title).toBe("c"));
   act(() =>
-    result.current.move.mutate(
-      moveWithLinks(result.current.list.data!, b.id, c.id)!,
-    ),
+    result.current.move.mutate({
+      ids: moveWithLinks(result.current.list.data!, b.id, c.id)!,
+      previous: result.current.list.data!.map((t) => t.id),
+    }),
   );
   await waitFor(() =>
     expect(titles(result.current.list.data)).toEqual(["b", "c", "a"]),
