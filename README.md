@@ -109,7 +109,7 @@ All under `/api` (interactive docs at http://localhost:8000/docs). Task routes n
 - `POST /tasks/{id}/links {depends_on_id}`, `DELETE /tasks/{id}/links/{depends_on_id}`: "this task waits for that one"
 - `GET`/`POST /categories {name}`, `PATCH`/`DELETE /categories/{id}`; `POST /tasks/{id}/category-suggestion`: ask the AI
 - `POST /examples`: add the example tasks
-- `GET /health`: 200, or 503 when the database is unreachable; `GET /status`: version, replica, database and AI, always 200
+- `GET /health`: 200, or 503 when the database is unreachable; `GET /status`: version, replica, uptime, database, and whether AI is on; always 200
 
 Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` for validation): 400 validation, 401 not signed in, 404 not found, 409 conflicts (email taken, category exists, a link loop, a stale order), 429 too many AI requests, 503 AI or database unavailable.
 

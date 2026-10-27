@@ -202,14 +202,7 @@ export type Status = {
   started_at: string;
   uptime_seconds: number;
   database: { ok: boolean; latency_ms: number | null };
-  ai: {
-    enabled: boolean;
-    calls_today: number;
-    spent_this_month_usd: number;
-    monthly_budget_usd: number;
-    per_user_per_minute: number;
-    per_user_per_day: number;
-  } | null;
+  ai_enabled: boolean;
 };
 
 /** Public: this copy of the server's version, name and health (spec §14). */

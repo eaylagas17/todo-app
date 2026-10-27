@@ -126,22 +126,13 @@ class DatabaseStatus(Output):
     latency_ms: float | None
 
 
-class AiStatus(Output):
-    enabled: bool
-    calls_today: int
-    spent_this_month_usd: float
-    monthly_budget_usd: float
-    per_user_per_minute: int
-    per_user_per_day: int
-
-
 class StatusOut(Output):
     version: str
     replica: str
     started_at: datetime
     uptime_seconds: int
     database: DatabaseStatus
-    ai: AiStatus | None  # None while the database is down: the counts live there
+    ai_enabled: bool
 
 
 class ErrorDetail(Output):

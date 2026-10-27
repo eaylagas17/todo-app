@@ -30,7 +30,6 @@ export function StatusPage() {
     );
   }
   const data = status.data;
-  const ai = data?.ai;
 
   return (
     <main className="page narrow">
@@ -52,22 +51,7 @@ export function StatusPage() {
               : "Unreachable"}
           </dd>
           <dt>AI suggestions</dt>
-          <dd>{ai ? (ai.enabled ? "On" : "Off: no key") : "Unknown"}</dd>
-          {ai && (
-            <>
-              <dt>AI calls today</dt>
-              <dd>{ai.calls_today}</dd>
-              <dt>AI spend this month</dt>
-              <dd>
-                ${ai.spent_this_month_usd.toFixed(4)} of $
-                {ai.monthly_budget_usd.toFixed(2)}
-              </dd>
-              <dt>AI limits per person</dt>
-              <dd>
-                {ai.per_user_per_minute} a minute, {ai.per_user_per_day} a day
-              </dd>
-            </>
-          )}
+          <dd>{data.ai_enabled ? "On" : "Off: no key"}</dd>
         </dl>
       )}
       <button

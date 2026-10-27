@@ -62,7 +62,7 @@ export const FEATURES: Feature[] = [
   },
   {
     title: "Status page",
-    what: "The running system: its version, which copy answered, the database and the AI budget.",
+    what: "The running system: its version, which copy answered, the database, and the interactive API docs.",
     how: "It refreshes every 5 seconds; on the cloud, watch the copy change.",
     to: "/status",
   },
