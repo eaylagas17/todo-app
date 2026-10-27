@@ -155,6 +155,71 @@ it("links by dragging the edge dot onto another task", async () => {
       body: { depends_on_id: venue.id },
     }),
   );
+  expect(document.querySelector(".link-arrow")).toBeNull();
+});
+
+it("draws an arrow while linking and removes it on release anywhere", async () => {
+  renderApp("/tasks", { as: ada });
+  const dot = await screen.findByRole("button", {
+    name: "Link Order the cake to another task",
+  });
+  const original = document.elementFromPoint;
+  document.elementFromPoint = () => null;
+  try {
+    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+    expect(document.querySelector(".link-arrow")).not.toBeNull();
+    fireEvent.pointerMove(dot, { clientX: 40, clientY: 30, pointerId: 1 });
+    expect(
+      document.querySelector(".link-arrow .line")?.getAttribute("d"),
+    ).toMatch(/L 40 30$/);
+    fireEvent.pointerUp(dot, { clientX: 40, clientY: 30, pointerId: 1 });
+  } finally {
+    document.elementFromPoint = original;
+  }
+  expect(document.querySelector(".link-arrow")).toBeNull();
+  expect(requests.filter((r) => r.method === "POST")).toEqual([]);
+});
+
+it("outlines the task under the pointer, never the one dragged from", async () => {
+  renderApp("/tasks", { as: ada });
+  const dot = await screen.findByRole("button", {
+    name: "Link Order the cake to another task",
+  });
+  const original = document.elementFromPoint;
+  let under = row("Book the venue");
+  document.elementFromPoint = () => under;
+  try {
+    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+    fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+    expect(row("Book the venue")).toHaveClass("link-target");
+    under = row("Order the cake");
+    fireEvent.pointerMove(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+    expect(document.querySelector(".link-target")).toBeNull();
+    under = row("Book the venue");
+    fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+    fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+  } finally {
+    document.elementFromPoint = original;
+  }
+  expect(document.querySelector(".link-target")).toBeNull();
+});
+
+it("draws the arrow in the graph too", async () => {
+  renderApp("/tasks?view=graph", { as: ada });
+  const dot = await screen.findByRole("button", {
+    name: "Link Order the cake to another task",
+  });
+  const original = document.elementFromPoint;
+  document.elementFromPoint = () => null;
+  try {
+    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+    // In the body, not inside the zoomed canvas: a transformed ancestor would break position: fixed.
+    expect(document.querySelector("body > .link-arrow")).not.toBeNull();
+    fireEvent.pointerUp(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  } finally {
+    document.elementFromPoint = original;
+  }
+  expect(document.querySelector(".link-arrow")).toBeNull();
 });
 
 it("moving a task below the task waiting for it pulls that task along", async () => {
