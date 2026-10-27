@@ -122,6 +122,21 @@ describe("steps", () => {
     ).toBe(2));
 });
 
+describe("groups and steps at scale", () => {
+  // One task that 40,000 others wait for: linear work is a few milliseconds; copying the
+  // neighbour list on every link (quadratic) takes seconds.
+  it("stay linear for a task with many dependents", () => {
+    const hub = task("hub", 0);
+    const spokes = Array.from({ length: 40_000 }, (_, i) =>
+      waiting(`s${i}`, i + 1, ["hub"]),
+    );
+    const started = performance.now();
+    linkGroups([hub, ...spokes]);
+    steps([hub, ...spokes]);
+    expect(performance.now() - started).toBeLessThan(500);
+  });
+});
+
 describe("isWaiting", () => {
   const venue = task("A", 1);
   const invites = waiting("B", 2, ["A"]);
