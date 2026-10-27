@@ -13,6 +13,7 @@ class AppError(Exception):
     code = "INTERNAL_ERROR"
     message = "Something went wrong. Please try again."
     headers: ClassVar[dict[str, str]] = {}
+    fields: dict[str, str] | None = None
 
 
 class AuthRequired(AppError):
@@ -45,6 +46,48 @@ class SubtaskNotFound(AppError):
     status_code = 404
     code = "SUBTASK_NOT_FOUND"
     message = "Subtask not found"
+
+
+class InvalidField(AppError):
+    """A value that passes the schema but not a rule only the database can check."""
+
+    status_code = 400
+    code = "VALIDATION_ERROR"
+
+    def __init__(self, field: str, message: str):
+        super().__init__(message)
+        self.message = message
+        self.fields = {field: message}
+
+
+class CategoryExists(AppError):
+    status_code = 409
+    code = "CATEGORY_EXISTS"
+    message = "You already have a category with that name"
+
+
+class CategoryNotFound(AppError):
+    status_code = 404
+    code = "CATEGORY_NOT_FOUND"
+    message = "Category not found"
+
+
+class AiUnavailable(AppError):
+    status_code = 503
+    code = "AI_UNAVAILABLE"
+    message = "AI suggestions are unavailable right now"
+
+
+class AiRateLimited(AppError):
+    status_code = 429
+    code = "AI_RATE_LIMITED"
+    message = "Too many AI requests. Try again in a minute."
+
+
+class AiBudgetReached(AppError):
+    status_code = 503
+    code = "AI_BUDGET_REACHED"
+    message = "AI suggestions are paused for this month"
 
 
 class ServiceUnavailable(AppError):
@@ -101,7 +144,9 @@ def _field(error: dict) -> str:
 
 
 async def _app_error(request: Request, exc: AppError) -> JSONResponse:
-    return error_response(exc.status_code, exc.code, exc.message, headers=exc.headers)
+    return error_response(
+        exc.status_code, exc.code, exc.message, exc.fields, exc.headers
+    )
 
 
 async def _validation_error(

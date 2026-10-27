@@ -2,17 +2,20 @@ import uuid
 from http import HTTPStatus
 from typing import Annotated
 
+import httpx
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import crud
+from app import ai, crud
 from app.db import DbSession
 from app.errors import ServiceUnavailable
-from app.models import Subtask, Task, User, UserSession
+from app.models import Category, Subtask, Task, User, UserSession
 from app.schemas import (
     AuthOut,
+    CategoryIn,
+    CategoryOut,
     Credentials,
     ErrorOut,
     SubtaskCreate,
@@ -146,6 +149,64 @@ def update_subtask(
 )
 def delete_subtask(subtask: OwnedSubtask, db: DbSession) -> None:
     crud.delete(db, subtask)
+
+
+@router.post(
+    "/tasks/{task_id}/category-suggestion",
+    response_model=TaskOut,
+    responses=errors(400, 401, 404, 429, 503),
+)
+def suggest_category(
+    task: OwnedTask,
+    user: SignedInUser,
+    db: DbSession,
+    http: Annotated[httpx.Client, Depends(ai.get_http_client)],
+) -> Task:
+    return ai.suggest_category(db, user, task, http)
+
+
+@router.get("/categories", response_model=list[CategoryOut], responses=errors(401))
+def list_categories(user: SignedInUser, db: DbSession) -> list[Category]:
+    return crud.list_categories(db, user)
+
+
+@router.post(
+    "/categories",
+    status_code=status.HTTP_201_CREATED,
+    response_model=CategoryOut,
+    responses=errors(400, 401, 409),
+)
+def create_category(new: CategoryIn, user: SignedInUser, db: DbSession) -> Category:
+    return crud.create_category(db, user, new.name)
+
+
+def owned_category(
+    category_id: uuid.UUID, user: SignedInUser, db: DbSession
+) -> Category:
+    return crud.get_category(db, user, category_id)
+
+
+OwnedCategory = Annotated[Category, Depends(owned_category)]
+
+
+@router.patch(
+    "/categories/{category_id}",
+    response_model=CategoryOut,
+    responses=errors(400, 401, 404, 409),
+)
+def rename_category(
+    changes: CategoryIn, category: OwnedCategory, db: DbSession
+) -> Category:
+    return crud.rename_category(db, category, changes.name)
+
+
+@router.delete(
+    "/categories/{category_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=errors(400, 401, 404),
+)
+def delete_category(category: OwnedCategory, db: DbSession) -> None:
+    crud.delete_category(db, category)
 
 
 @router.get("/health", responses=errors(503))

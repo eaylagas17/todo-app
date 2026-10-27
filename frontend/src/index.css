@@ -229,6 +229,17 @@ label {
   }
 }
 
+/* From 900px the categories sit in a column on the left, like Notes' folders. */
+@media (min-width: 900px) {
+  .layout {
+    grid-template-columns: 14rem minmax(0, 1fr);
+  }
+
+  .layout.split {
+    grid-template-columns: 14rem minmax(0, 1fr) minmax(320px, 26rem);
+  }
+}
+
 .add,
 .actions {
   display: flex;
@@ -284,6 +295,21 @@ label {
   padding: 0.6rem 0.25rem;
   color: var(--ink);
   text-decoration: none;
+}
+
+/* Text on the left (title over the grey line), the category name on the right. */
+.task > a {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 0.5rem;
+  align-items: center;
+}
+
+.task .category {
+  grid-column: 2;
+  grid-row: 1;
+  color: var(--sub);
+  font-size: 0.8125rem;
 }
 
 .task > a[aria-current] {
@@ -453,4 +479,75 @@ label {
 .checklist .delete {
   color: var(--sub);
   font-size: 1.25rem;
+}
+
+/* The categories: a list of filters, then "+ New category" and Edit. */
+.categories {
+  padding: 1rem;
+}
+
+.categories ul {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.categories a {
+  display: flex;
+  justify-content: space-between;
+  gap: 0.5rem;
+  min-height: 44px;
+  align-items: center;
+  padding: 0 0.75rem;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.categories a span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.categories a[aria-current] {
+  background: var(--tint);
+  color: var(--on-tint);
+  font-weight: 600;
+}
+
+.categories .count {
+  color: inherit;
+  opacity: 0.7;
+}
+
+.edit-row {
+  display: flex;
+  gap: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.categories .toggle {
+  display: none;
+}
+
+/* Below 900px the list folds behind a "Categories" button above the tasks. */
+@media (max-width: 899px) {
+  .categories {
+    grid-column: 1 / -1;
+    padding: 1rem 1rem 0;
+  }
+
+  .categories .toggle {
+    display: block;
+  }
+
+  .categories:not(.open) > :not(.toggle) {
+    display: none;
+  }
+
+  .categories.open > .toggle {
+    margin-bottom: 0.5rem;
+  }
 }

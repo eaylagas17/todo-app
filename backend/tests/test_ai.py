@@ -1,5 +1,6 @@
 import copy
 import json
+import uuid
 from datetime import timedelta
 from pathlib import Path
 
@@ -91,7 +92,9 @@ def test_never_overwrites_a_category_chosen_meanwhile(client, ada, jev, db):
 
     def person_picks_home():
         db.execute(
-            update(Task).where(Task.title == "Buy stamps").values(category_id=home)
+            update(Task)
+            .where(Task.title == "Buy stamps")
+            .values(category_id=uuid.UUID(home))
         )
         db.commit()
 

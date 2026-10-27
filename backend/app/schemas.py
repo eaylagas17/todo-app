@@ -20,6 +20,9 @@ Title = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
 Body = Annotated[str, StringConstraints(max_length=2000)]
+CategoryName = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
+]
 Position = Annotated[float, Field(allow_inf_nan=False)]
 
 
@@ -58,6 +61,8 @@ class TaskUpdate(Input):
     description: Body = None
     completed: bool = None
     position: Position = None
+    # The one field where an explicit null is allowed: it clears the category.
+    category_id: uuid.UUID | None = None
 
 
 class SubtaskCreate(Input):
@@ -82,6 +87,16 @@ class TaskOut(Output):
     completed: bool
     position: float
     subtasks: list[SubtaskOut]
+    category_id: uuid.UUID | None
+
+
+class CategoryIn(Input):
+    name: CategoryName
+
+
+class CategoryOut(Output):
+    id: uuid.UUID
+    name: str
 
 
 class ErrorDetail(Output):

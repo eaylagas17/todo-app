@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import type { AuthResult, Subtask, Task } from "../api.ts";
+import type { AuthResult, Category, Subtask, Task } from "../api.ts";
 
 type Account = { id: string; email: string; password: string };
 type Credentials = { email: string; password: string };
@@ -11,7 +11,10 @@ export const db = {
   users: new Map<string, Account>(),
   sessions: new Map<string, string>(),
   tasks: new Map<string, { ownerId: string; task: Task }>(),
+  categories: new Map<string, { ownerId: string; category: Category }>(),
 };
+
+const DEFAULT_CATEGORIES = ["Work", "Home", "Errands", "Health", "Finance"];
 
 /** Every task request the fake server answered, so tests can check what was sent. */
 export const requests: Recorded[] = [];
@@ -23,7 +26,22 @@ export function resetDb() {
   db.users.clear();
   db.sessions.clear();
   db.tasks.clear();
+  db.categories.clear();
   requests.length = 0;
+}
+
+function addCategory(ownerId: string, name: string): Category {
+  const category = { id: nextId(), name };
+  db.categories.set(category.id, { ownerId, category });
+  return { ...category };
+}
+
+// Every new account starts with the default categories, as on the server.
+function addAccount(email: string, password: string): Account {
+  const account = { id: nextId(), email, password };
+  db.users.set(email, account);
+  DEFAULT_CATEGORIES.forEach((name) => addCategory(account.id, name));
+  return account;
 }
 
 function startSession(account: Account): AuthResult {
@@ -36,9 +54,7 @@ export function seedUser(
   email = "ada@example.com",
   password = "correct-horse",
 ): AuthResult {
-  const account = { id: nextId(), email, password };
-  db.users.set(email, account);
-  return startSession(account);
+  return startSession(addAccount(email, password));
 }
 
 const tasksOf = (ownerId: string) =>
@@ -53,6 +69,7 @@ function addTask(ownerId: string, title: string, description = ""): Task {
     completed: false,
     position: top + 1,
     subtasks: [],
+    category_id: null,
   };
   db.tasks.set(task.id, { ownerId, task });
   return { ...task };
@@ -99,6 +116,29 @@ function ownTask(request: Request, id: string) {
   return { task: entry.task };
 }
 
+const categoriesOf = (ownerId: string) =>
+  [...db.categories.values()].filter((entry) => entry.ownerId === ownerId);
+
+function ownCategory(request: Request, id: string) {
+  const ownerId = signedInUser(request);
+  const entry = db.categories.get(id);
+  if (!ownerId)
+    return { error: fail(401, "AUTH_REQUIRED", "Authentication required") };
+  if (entry?.ownerId !== ownerId)
+    return { error: fail(404, "CATEGORY_NOT_FOUND", "Category not found") };
+  return { ownerId, category: entry.category };
+}
+
+const nameTaken = (ownerId: string, name: string, except?: string) =>
+  categoriesOf(ownerId).some(
+    ({ category }) =>
+      category.id !== except &&
+      category.name.toLowerCase() === name.toLowerCase(),
+  );
+
+const exists = () =>
+  fail(409, "CATEGORY_EXISTS", "You already have a category with that name");
+
 // The task first (404 TASK_NOT_FOUND if it isn't the caller's), then the subtask within it.
 function ownSubtask(request: Request, params: Record<string, unknown>) {
   const { task, error } = ownTask(request, String(params.id));
@@ -114,9 +154,9 @@ export const server = setupServer(
     const { email, password } = (await request.json()) as Credentials;
     if (db.users.has(email))
       return fail(409, "EMAIL_TAKEN", "Email is already registered");
-    const account = { id: nextId(), email, password };
-    db.users.set(email, account);
-    return HttpResponse.json(startSession(account), { status: 201 });
+    return HttpResponse.json(startSession(addAccount(email, password)), {
+      status: 201,
+    });
   }),
   http.post("/api/sessions", async ({ request }) => {
     const { email, password } = (await request.json()) as Credentials;
@@ -193,6 +233,56 @@ export const server = setupServer(
     const { task, subtask, error } = ownSubtask(request, params);
     if (error) return error;
     task.subtasks = task.subtasks.filter((s) => s !== subtask);
+    return new HttpResponse(null, { status: 204 });
+  }),
+  // Without a TYPESAFE_API_KEY the real server answers this; tests that want a category say so.
+  http.post("/api/tasks/:id/category-suggestion", ({ request }) => {
+    record(request);
+    return fail(
+      503,
+      "AI_UNAVAILABLE",
+      "AI suggestions are unavailable right now",
+    );
+  }),
+  http.get("/api/categories", ({ request }) => {
+    const ownerId = signedInUser(request);
+    if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
+    return HttpResponse.json(
+      categoriesOf(ownerId).map(({ category }) => ({ ...category })),
+    );
+  }),
+  http.post("/api/categories", async ({ request }) => {
+    const { name } = (await request.json()) as { name: string };
+    record(request, { name });
+    const ownerId = signedInUser(request);
+    if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
+    if (nameTaken(ownerId, name.trim())) return exists();
+    return HttpResponse.json(addCategory(ownerId, name.trim()), {
+      status: 201,
+    });
+  }),
+  http.patch("/api/categories/:id", async ({ request, params }) => {
+    const { name } = (await request.json()) as { name: string };
+    record(request, { name });
+    const { ownerId, category, error } = ownCategory(
+      request,
+      String(params.id),
+    );
+    if (error) return error;
+    if (nameTaken(ownerId, name.trim(), category.id)) return exists();
+    category.name = name.trim();
+    return HttpResponse.json({ ...category });
+  }),
+  http.delete("/api/categories/:id", ({ request, params }) => {
+    record(request);
+    const { ownerId, category, error } = ownCategory(
+      request,
+      String(params.id),
+    );
+    if (error) return error;
+    db.categories.delete(category.id);
+    for (const { task } of tasksOf(ownerId))
+      if (task.category_id === category.id) task.category_id = null;
     return new HttpResponse(null, { status: 204 });
   }),
   http.delete("/api/tasks/:id", ({ request, params }) => {

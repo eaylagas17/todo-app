@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, String, Text
+from sqlalchemy import DateTime, ForeignKey, Index, String, Text, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base, utcnow
@@ -42,6 +42,9 @@ class Task(Base):
     description: Mapped[str] = mapped_column(Text, default="")
     completed: Mapped[bool] = mapped_column(default=False)
     position: Mapped[float]
+    category_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("categories.id", ondelete="SET NULL")
+    )
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
@@ -63,3 +66,46 @@ class Subtask(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    # UUIDv7 ids grow with time, so the five default categories, created in the same
+    # millisecond, still list in the order they were made.
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid7)
+    owner_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    name: Mapped[str] = mapped_column(String(40))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+
+# Unique per owner ignoring case: "Wedding" and "wedding" can't both exist (E36). The same index
+# serves listing a user's categories.
+Index(
+    "ix_categories_owner_name",
+    Category.owner_id,
+    func.lower(Category.name),
+    unique=True,
+)
+
+
+class AiCall(Base):
+    """One request to the AI, kept to enforce the limits. No task column: deleting a task must
+    never shrink what was spent."""
+
+    __tablename__ = "ai_calls"
+    __table_args__ = (
+        Index("ix_ai_calls_user_at", "user_id", "at"),
+        Index("ix_ai_calls_at", "at"),
+    )
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE")
+    )
+    at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    input_tokens: Mapped[int] = mapped_column(default=0)

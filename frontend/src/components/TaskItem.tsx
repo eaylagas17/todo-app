@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
-import { useDeleteTask, useToggleTask } from "../queries.ts";
+import { useCategories, useDeleteTask, useToggleTask } from "../queries.ts";
 import { subtaskProgress } from "../tasks.ts";
 
 type Props = {
@@ -20,6 +20,7 @@ export function TaskItem({ task, handle, ref, style }: Props) {
   panel.set("task", task.id);
   const preview = task.description.split("\n")[0];
   const progress = subtaskProgress(task);
+  const category = useCategories().data?.find((c) => c.id === task.category_id);
   return (
     <li className="task" ref={ref} style={style}>
       {handle}
@@ -45,6 +46,7 @@ export function TaskItem({ task, handle, ref, style }: Props) {
             {progress && <span className="progress">{progress}</span>}
           </span>
         )}
+        {category && <span className="category">{category.name}</span>}
       </Link>
       <button
         type="button"

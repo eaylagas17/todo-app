@@ -4,6 +4,8 @@ export type User = { id: string; email: string };
 
 export type Subtask = { id: string; title: string; completed: boolean };
 
+export type Category = { id: string; name: string };
+
 export type Task = {
   id: string;
   title: string;
@@ -11,6 +13,7 @@ export type Task = {
   completed: boolean;
   position: number;
   subtasks: Subtask[];
+  category_id: string | null;
 };
 
 export type AuthResult = { user: User; token: string };
@@ -140,3 +143,20 @@ export const updateSubtask = (
 
 export const deleteSubtask = (taskId: string, subtaskId: string) =>
   request<void>(subtaskPath(taskId, subtaskId), { method: "DELETE" });
+
+export const listCategories = () => request<Category[]>("/categories");
+
+export const createCategory = (name: string) =>
+  request<Category>("/categories", { method: "POST", body: { name } });
+
+const categoryPath = (id: string) => `/categories/${encodeURIComponent(id)}`;
+
+export const renameCategory = (id: string, name: string) =>
+  request<Category>(categoryPath(id), { method: "PATCH", body: { name } });
+
+export const deleteCategory = (id: string) =>
+  request<void>(categoryPath(id), { method: "DELETE" });
+
+/** Asks the server to ask Jev. Answers with the task, categorised or not. */
+export const suggestCategory = (taskId: string) =>
+  request<Task>(`${taskPath(taskId)}/category-suggestion`, { method: "POST" });
