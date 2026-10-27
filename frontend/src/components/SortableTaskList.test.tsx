@@ -262,3 +262,27 @@ it("a row leaving the list mid-drag waits until the drop", async () => {
   });
   expect(taskLinks()).toEqual(["b", "a"]);
 });
+
+it("a tall task travelling with the dragged one counts as part of the group", async () => {
+  // a (50px), then b (100px, waits for a), c and d (50px each).
+  layOutRows({ 1: 100 });
+  const [a, b, c, d] = seedTasks(ada, ["a", "b", "c", "d"]);
+  db.tasks.get(b.id)!.task.waits_for = [a.id];
+  renderApp("/tasks", { as: ada });
+  // a's top at 80: b travels with it, so the rows it has passed are c and d (d's middle is at
+  // 75 once b is out of the way). Counting b's height as if b were still above would leave d
+  // below the group and draw the group over it.
+  const grip = await pointerDrag("a", 20, 100);
+  expect(row("d").style.transform).toBe("translateY(-150px)");
+  fireEvent.pointerUp(grip, { clientY: 100, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: {
+        ids: [c.id, d.id, a.id, b.id],
+        previous: [a.id, b.id, c.id, d.id],
+      },
+    }),
+  );
+});
