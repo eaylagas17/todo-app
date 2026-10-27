@@ -10,15 +10,24 @@ export function useLinkDrag(onLink: (fromId: string, toId: string) => void) {
     onPointerDown(event: ReactPointerEvent) {
       event.preventDefault();
       document.body.classList.add("linking");
+      // A second finger means a pinch, not a link: the drop is then ignored.
+      let pinching = false;
+      const second = (other: PointerEvent) => {
+        if (other.pointerId !== event.pointerId) pinching = true;
+      };
       const drop = (up: PointerEvent) => {
+        if (up.pointerId !== event.pointerId) return;
+        window.removeEventListener("pointerdown", second);
         window.removeEventListener("pointerup", drop);
         document.body.classList.remove("linking");
+        if (pinching) return;
         const target = document
           .elementFromPoint(up.clientX, up.clientY)
           ?.closest<HTMLElement>("[data-task-id]");
         const toId = target?.dataset.taskId;
         if (toId && toId !== taskId) onLink(taskId, toId);
       };
+      window.addEventListener("pointerdown", second);
       window.addEventListener("pointerup", drop);
     },
   });

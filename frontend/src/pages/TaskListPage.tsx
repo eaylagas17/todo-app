@@ -5,6 +5,8 @@ import { SidePanel } from "../components/SidePanel.tsx";
 import { SortableTaskList } from "../components/SortableTaskList.tsx";
 import { TaskDetails } from "../components/TaskDetails.tsx";
 import { TaskItem } from "../components/TaskItem.tsx";
+import { GraphView } from "../graph/GraphView.tsx";
+import { withTransition } from "../motion.ts";
 import {
   useCategories,
   useCreateTask,
@@ -28,6 +30,21 @@ export function TaskListPage() {
   const category = categories.data?.some((c) => c.id === wanted)
     ? wanted
     : null;
+
+  const view = params.get("view") === "graph" ? "graph" : "list";
+
+  // Accent A: the switch runs inside a View Transition, so each task morphs from its row
+  // to its node and back. A push, so the back button returns to the other view.
+  function showView(next: "list" | "graph") {
+    withTransition(() =>
+      setParams((current) => {
+        const updated = new URLSearchParams(current);
+        if (next === "graph") updated.set("view", "graph");
+        else updated.delete("view");
+        return updated;
+      }),
+    );
+  }
 
   // Replace, not push: after closing, the back button goes to the page before, not to the
   // panel again. Other params (a filter, a view) are kept.
@@ -78,11 +95,29 @@ export function TaskListPage() {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
         />
+        <div className="views" role="group" aria-label="View">
+          <button
+            type="button"
+            className="secondary"
+            aria-pressed={view === "list"}
+            onClick={() => showView("list")}
+          >
+            List
+          </button>
+          <button
+            type="button"
+            className="secondary"
+            aria-pressed={view === "graph"}
+            onClick={() => showView("graph")}
+          >
+            Graph
+          </button>
+        </div>
         {changeError && <p role="alert">{changeError.message}</p>}
         {tasks.isError && tasks.data && (
           <p role="alert">{tasks.error.message}</p>
         )}
-        <TaskList query={query} category={category} tasks={tasks} />
+        <TaskList query={query} category={category} view={view} tasks={tasks} />
       </main>
       {openId && tasks.data && (
         <SidePanel
@@ -111,10 +146,12 @@ export function TaskListPage() {
 function TaskList({
   query,
   category,
+  view,
   tasks,
 }: {
   query: string;
   category: string | null;
+  view: "list" | "graph";
   tasks: ReturnType<typeof useTasks>;
 }) {
   // Only a first load can fail with nothing to show. A failed refresh keeps the list on
@@ -142,6 +179,8 @@ function TaskList({
   const visible = tasks.data.filter(
     allOf(matchesSearch(query), inCategory(category)),
   );
+  // The graph draws what the list would show, so search and the category filter apply.
+  if (view === "graph") return <GraphView tasks={visible} />;
   // From the whole list, not the visible part: a step counts every task before it.
   const links = linkInfo(tasks.data);
   if (visible.length === 0) {
