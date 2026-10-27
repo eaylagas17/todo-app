@@ -249,5 +249,32 @@ it("applies changes instantly without View Transitions", async () => {
       "Send invitations",
     ]),
   );
+  // Let the held request finish inside this test: a late answer after cleanup would be a 401
+  // that signs the next test out.
+  const reads = requests.filter((r) => r.method === "GET").length;
   release();
+  await waitFor(() =>
+    expect(requests.filter((r) => r.method === "GET").length).toBeGreaterThan(
+      reads,
+    ),
+  );
+});
+
+it("a second finger turns a link drag into a pinch, not a link", async () => {
+  renderApp("/tasks", { as: ada });
+  const dot = await screen.findByRole("button", {
+    name: "Link Order the cake to another task",
+  });
+  const target = row("Book the venue");
+  const original = document.elementFromPoint;
+  document.elementFromPoint = () => target;
+  try {
+    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+    fireEvent.pointerDown(target, { clientX: 10, clientY: 20, pointerId: 2 });
+    fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+  } finally {
+    document.elementFromPoint = original;
+  }
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  expect(requests.filter((r) => r.path.endsWith("/links"))).toEqual([]);
 });
