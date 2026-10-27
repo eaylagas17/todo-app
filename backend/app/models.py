@@ -39,8 +39,13 @@ class Task(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
-    title: Mapped[str] = mapped_column(String(200))
-    description: Mapped[str] = mapped_column(Text, default="")
+    # v1.0 called the task's text "description"; the column keeps that name, so v1.0 still
+    # reads and writes every task after a rollback. Renaming it waits until v1.0 is retired.
+    title: Mapped[str] = mapped_column("description", Text)
+    # New in v1.1. The database's default fills it in when v1.0 adds a task.
+    description: Mapped[str] = mapped_column(
+        "details", Text, default="", server_default=""
+    )
     completed: Mapped[bool] = mapped_column(default=False)
     position: Mapped[float]
     category_id: Mapped[uuid.UUID | None] = mapped_column(
