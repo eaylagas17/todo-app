@@ -743,15 +743,15 @@ label {
   color: light-dark(hsl(var(--hue) 60% 22%), hsl(var(--hue) 60% 90%));
 }
 
-/* The icon is a mask, so its colour comes from CSS: the group's opposite hue, dark enough to
-   keep 3:1 against the card. */
+/* The icon is a mask, so its colour comes from CSS: its chain's hue, like the step number,
+   dark enough on white and light enough on the dark card to keep 3:1 for every hue. */
 .chain {
   display: inline-block;
   width: 0.9em;
   height: 0.9em;
   margin-right: 0.3em;
   vertical-align: -0.1em;
-  background: hsl(calc(var(--hue) + 180) 55% 38%);
+  background: light-dark(hsl(var(--hue) 60% 35%), hsl(var(--hue) 70% 62%));
   mask: url("./assets/chain.png") center / contain no-repeat;
 }
 
