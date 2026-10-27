@@ -1,6 +1,5 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router";
-import type { Task } from "../api.ts";
 import { CategorySidebar } from "../components/CategorySidebar.tsx";
 import { SidePanel } from "../components/SidePanel.tsx";
 import { SortableTaskList } from "../components/SortableTaskList.tsx";
@@ -15,6 +14,8 @@ import {
   useTasks,
 } from "../queries.ts";
 import {
+  allOf,
+  inCategory,
   inMainList,
   linkInfo,
   matchesSearch,
@@ -222,9 +223,8 @@ function TaskList({
   // recomputed from the cache, the undo windows and the query.
   const main = inMainList(all, lingering);
   const inMain = new Set(main.map((task) => task.id));
-  const matches = matchesSearch(query);
-  const filter = (task: Task) =>
-    matches(task) && (category === null || task.category_id === category);
+  // Function composition: one predicate made of the search and the category filter.
+  const filter = allOf(matchesSearch(query), inCategory(category));
   const visible = main.filter(filter);
   // A lingering task that leaves when its window ends gets the draining bar; one whose chain is
   // still unfinished stays anyway, so it gets none.
