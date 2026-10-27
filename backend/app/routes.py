@@ -20,6 +20,7 @@ from app.schemas import (
     ErrorOut,
     LinkIn,
     OrderIn,
+    StatusOut,
     SubtaskCreate,
     SubtaskOut,
     SubtaskUpdate,
@@ -29,6 +30,7 @@ from app.schemas import (
     UserOut,
 )
 from app.security import current_session, current_user
+from app.status import current_status
 
 router = APIRouter(prefix="/api")
 SignedInUser = Annotated[User, Depends(current_user)]
@@ -257,3 +259,9 @@ def health(db: DbSession) -> dict[str, str]:
     except SQLAlchemyError:
         raise ServiceUnavailable from None
     return {"status": "ok"}
+
+
+@router.get("/status", response_model=StatusOut)
+def get_status(db: DbSession) -> dict:
+    """Public, with nothing secret: which version and which copy answered, and how it's doing."""
+    return current_status(db)

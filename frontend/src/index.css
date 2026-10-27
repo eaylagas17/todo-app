@@ -740,6 +740,31 @@ label {
   font-size: 0.875rem;
 }
 
+/* The status page: a two-column list of facts, then the replicas that answered. */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  padding: 1rem;
+  margin: 0 0 1rem;
+  background: var(--card);
+  border-radius: var(--radius);
+}
+
+.facts dt {
+  color: var(--sub);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.replicas time {
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
 /* List | Graph: a two-button switch; the pressed one is filled. */
 .views {
   display: inline-flex;

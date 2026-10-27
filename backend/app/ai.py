@@ -104,3 +104,16 @@ def suggest_category(db: Session, user: User, task: Task, http: httpx.Client) ->
         task.category_id = uuid.UUID(choice)
     db.commit()
     return task
+
+
+def ai_usage(db: Session) -> dict:
+    """What the Status page shows about the AI: on or off, today's calls, this month's spend."""
+    today = utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
+    return {
+        "enabled": bool(os.environ.get("TYPESAFE_API_KEY")),
+        "calls_today": db.scalar(select(func.count()).where(AiCall.at >= today)),
+        "spent_this_month_usd": _spent_this_month(db),
+        "monthly_budget_usd": monthly_budget(),
+        "per_user_per_minute": PER_MINUTE,
+        "per_user_per_day": PER_DAY,
+    }
