@@ -38,7 +38,7 @@ it("switches to the graph and back, keeping the URL in step", async () => {
 it("opens the panel from a node", async () => {
   const { user } = renderApp("/tasks?view=graph", { as: ada });
   await user.click(
-    await within(await graph()).findByRole("link", { name: /Book the venue/ }),
+    await within(await graph()).findByRole("link", { name: /^Book the venue/ }),
   );
   expect(
     await screen.findByRole("complementary", { name: "Task details" }),
