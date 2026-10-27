@@ -92,6 +92,15 @@ export function StatusPage() {
           </li>
         ))}
       </ol>
+      <h2>The API</h2>
+      <p className="how">
+        Every endpoint, with its fields and error codes, generated from the code
+        (OpenAPI). You can call them from the page.
+      </p>
+      {/* A plain link, not the router's: /docs is served by FastAPI, not by this app. */}
+      <a href="/docs" target="_blank" rel="noreferrer">
+        Open the interactive API docs
+      </a>
     </main>
   );
 }
