@@ -108,6 +108,9 @@ def update_task(db: Session, task: Task, changes: dict) -> Task:
         )
     ):
         raise InvalidField("category_id", "Category not found")
+    # Stamped only when completed actually changes: ticking a done task again keeps its time.
+    if "completed" in changes and changes["completed"] != task.completed:
+        task.completed_at = utcnow() if changes["completed"] else None
     for field, value in changes.items():
         setattr(task, field, value)
     db.commit()

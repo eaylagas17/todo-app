@@ -210,7 +210,12 @@ export const useToggleTask = () =>
   useOptimisticTaskMutation(
     ({ id, completed }: { id: string; completed: boolean }) =>
       updateTask(id, { completed }),
-    (tasks, { id, completed }) => withChanges(tasks, id, { completed }),
+    // completed_at too, so Recently completed sorts right before the server answers.
+    (tasks, { id, completed }) =>
+      withChanges(tasks, id, {
+        completed,
+        completed_at: completed ? new Date().toISOString() : null,
+      }),
   );
 
 /** Saves the whole order after a drag; the rows glide into place where the browser can. */

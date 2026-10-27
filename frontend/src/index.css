@@ -288,9 +288,93 @@ label {
 }
 
 .task {
+  position: relative; /* the undo bar sits on its bottom edge */
   display: flex;
   align-items: center;
   background: var(--card);
+}
+
+/* Completing (spec §5.7): a ticked row stays 5 seconds with a bar that drains from full to
+   empty, then closes up; the task opens at the top of Recently completed. The bar drains even
+   under reduced motion, because it's the timer, not decoration. */
+.undo-bar {
+  position: absolute;
+  inset: auto 0 0;
+  height: 3px;
+  background: var(--tint);
+  transform-origin: left;
+  animation: drain 5s linear forwards;
+  pointer-events: none;
+}
+
+@keyframes drain {
+  to {
+    transform: scaleX(0);
+  }
+}
+
+.task.closing {
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .task.closing {
+    overflow: hidden;
+    animation: row-close 0.3s ease-in forwards;
+  }
+
+  .task.opening {
+    overflow: hidden;
+    animation: row-open 0.3s ease-out;
+  }
+
+  /* The section's first row has nothing to open into: the section itself fades in. */
+  .recent {
+    animation: fade-in 0.3s ease-out;
+  }
+}
+
+/* max-height, not height: rows differ in height, and 120px is more than any row needs. */
+@keyframes row-close {
+  from {
+    max-height: 120px;
+  }
+  to {
+    max-height: 0;
+    opacity: 0;
+  }
+}
+
+@keyframes row-open {
+  from {
+    max-height: 0;
+    opacity: 0;
+  }
+  to {
+    max-height: 120px;
+  }
+}
+
+/* Completed sits under the categories, set apart by a hairline (spec §5.7). */
+.completed-entry {
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--sep);
+}
+
+.added {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--sub);
+}
+
+.recent h2 {
+  margin: 1.5rem 0.25rem 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--sub);
 }
 
 .task > a,
@@ -552,11 +636,11 @@ label {
 /* Reduced motion: a short fade instead of a slide, on any screen. */
 @media (prefers-reduced-motion: reduce) {
   .panel {
-    animation: panel-fade 0.15s ease-out;
+    animation: fade-in 0.15s ease-out;
   }
 }
 
-@keyframes panel-fade {
+@keyframes fade-in {
   from {
     opacity: 0;
   }

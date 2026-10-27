@@ -73,9 +73,19 @@ function addTask(ownerId: string, title: string, description = ""): Task {
     subtasks: [],
     category_id: null,
     waits_for: [],
+    created_at: new Date().toISOString(),
+    completed_at: null as string | null,
   };
   db.tasks.set(task.id, { ownerId, task });
   return { ...task };
+}
+
+/** Marks a seeded task completed at a given time, as if it had been ticked then. */
+export function complete(task: Task, at: Date) {
+  Object.assign(db.tasks.get(task.id)!.task, {
+    completed: true,
+    completed_at: at.toISOString(),
+  });
 }
 
 /** Tasks for an existing session, at positions 1, 2, 3…, each with an empty description. */
@@ -237,6 +247,9 @@ export const server = setupServer(
     record(request, changes);
     const { task, error } = ownTask(request, String(params.id));
     if (error) return error;
+    // Like crud.update_task: stamped only when completed actually changes.
+    if (changes.completed !== undefined && changes.completed !== task.completed)
+      task.completed_at = changes.completed ? new Date().toISOString() : null;
     Object.assign(task, changes);
     return HttpResponse.json({ ...task });
   }),

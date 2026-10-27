@@ -2,7 +2,14 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
-import { db, requests, seedTasks, seedUser, server } from "../test/fakeApi.ts";
+import {
+  complete,
+  db,
+  requests,
+  seedTasks,
+  seedUser,
+  server,
+} from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -37,6 +44,22 @@ it("lists categories with counts in the sidebar", async () => {
   ).toBeInTheDocument();
   expect(within(nav).getByRole("link", { name: "Home 2" })).toBeInTheDocument();
   expect(within(nav).getByRole("link", { name: "Work 0" })).toBeInTheDocument();
+});
+
+it("counts open tasks per category and completed tasks under Completed", async () => {
+  const [venue, cake] = seedTasks(ada, ["Venue", "Cake", "Report"]);
+  file(venue, "Home");
+  file(cake, "Home");
+  complete(cake, new Date());
+  renderApp("/tasks", { as: ada });
+  const nav = await sidebar();
+  expect(
+    await within(nav).findByRole("link", { name: "All 2" }),
+  ).toBeInTheDocument();
+  expect(within(nav).getByRole("link", { name: "Home 1" })).toBeInTheDocument();
+  expect(
+    within(nav).getByRole("link", { name: "Completed 1" }),
+  ).toHaveAttribute("href", "/tasks?list=completed");
 });
 
 it("filters the list by category", async () => {

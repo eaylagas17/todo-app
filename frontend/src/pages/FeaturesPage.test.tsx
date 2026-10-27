@@ -19,6 +19,7 @@ const FEATURES = [
   "AI categories",
   "Search",
   "Drag to reorder",
+  "Completed tasks",
   "Side panel and full page",
   "Status page",
   "Offline and error handling",
@@ -72,4 +73,11 @@ it("the header shows Tasks and Features", async () => {
   expect(
     await screen.findByRole("heading", { name: "Features", level: 1 }),
   ).toBeInTheDocument();
+});
+
+it("Show me for completed tasks opens the Completed page", async () => {
+  renderApp("/features", { as: ada });
+  expect(
+    await screen.findByRole("link", { name: "Show me: Completed tasks" }),
+  ).toHaveAttribute("href", "/tasks?list=completed");
 });

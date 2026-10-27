@@ -1,3 +1,5 @@
+from datetime import UTC, datetime, timedelta
+
 import pytest
 
 from tests.helpers import add_task
@@ -16,6 +18,8 @@ def test_create_task_returns_it_with_location(client, ada):
         "subtasks": [],
         "category_id": None,
         "waits_for": [],
+        "created_at": task["created_at"],
+        "completed_at": None,
     }
     assert response.headers["location"] == f"/api/tasks/{task['id']}"
 
@@ -123,7 +127,12 @@ def test_patch_changes_only_the_fields_sent(client, ada):
         f"/api/tasks/{task['id']}", json={"completed": True}, headers=ada
     )
     assert response.status_code == 200
-    assert response.json() == {**task, "completed": True}
+    changed = response.json()
+    assert changed == {
+        **task,
+        "completed": True,
+        "completed_at": changed["completed_at"],
+    }
 
 
 def test_an_empty_patch_changes_nothing(client, ada):
@@ -158,3 +167,36 @@ def test_delete_removes_the_task(client, ada):
     response = client.delete(f"/api/tasks/{task['id']}", headers=ada)
     assert response.status_code == 204
     assert client.get(f"/api/tasks/{task['id']}", headers=ada).status_code == 404
+
+
+def utc(value: str) -> datetime:
+    """An API date, which must carry its UTC offset (Feedback 4)."""
+    moment = datetime.fromisoformat(value)
+    assert moment.utcoffset() == timedelta(0), value
+    return moment
+
+
+def test_task_dates_are_utc(client, ada):
+    task = add_task(client, ada, "Buy milk")
+    assert abs(utc(task["created_at"]) - datetime.now(UTC)) < timedelta(seconds=60)
+    assert task["completed_at"] is None
+
+
+def test_completing_stamps_completed_at_and_unticking_clears_it(client, ada):
+    task = add_task(client, ada, "Buy milk")
+    url = f"/api/tasks/{task['id']}"
+    done = client.patch(url, json={"completed": True}, headers=ada).json()
+    assert abs(utc(done["completed_at"]) - datetime.now(UTC)) < timedelta(seconds=60)
+    undone = client.patch(url, json={"completed": False}, headers=ada).json()
+    assert undone["completed_at"] is None
+
+
+def test_completed_at_stays_when_other_fields_change(client, ada):
+    task = add_task(client, ada, "Buy milk")
+    url = f"/api/tasks/{task['id']}"
+    done = client.patch(url, json={"completed": True}, headers=ada).json()
+    renamed = client.patch(url, json={"title": "Buy oat milk"}, headers=ada).json()
+    assert renamed["completed_at"] == done["completed_at"]
+    # Ticking an already completed task again keeps the first time too.
+    again = client.patch(url, json={"completed": True}, headers=ada).json()
+    assert again["completed_at"] == done["completed_at"]

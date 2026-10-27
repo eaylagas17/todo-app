@@ -2,7 +2,7 @@
 
 [![CI](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml)
 
-A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks in a side panel or on their own screen. Tasks have subtasks and categories (suggested by AI), and can wait for each other; a graph view draws those links. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
+A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks in a side panel or on their own screen. Tasks have subtasks and categories (suggested by AI), and can wait for each other; a graph view draws those links. A ticked task waits five seconds for an undo, then moves under Recently completed. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
 
 **Demo account:** `demo@example.com` / `demo-password` (created automatically, with a small example plan). The **Features** tab lists every feature with a way to try it.
 
@@ -44,7 +44,7 @@ cd ../frontend && npm ci && npm test         # 142 tests
 - **Secure sessions.** Passwords hashed with Argon2id. Sign-in issues a random token, stored only as a SHA-256 hash, valid 7 days; sign-out deletes it.
 - **Async through one abstraction.** TanStack Query owns every request: caching, retries of only the failures worth retrying, and task changes queued in click order. Ticking, deleting and reordering show at once and roll back with the server's message if it refuses. Offline, timeouts and server errors each get a clear message.
 - **Functional and declarative.** Pure, immutable helpers (`tasks.ts`: `toSorted`, `toSpliced`, a search filter made by a higher-order function); every optimistic change is one hook that takes an update function. Components describe the screen from state.
-- **Links between tasks, as a graph.** "A waits for B" is an edge in a per-user DAG. A link that would make a loop is refused (depth-first search, O(V + E)). Dragging a task repairs the order with a two-pass topological sort (Kahn's algorithm with a priority queue, O((V + E) log V)): whatever is in the way moves with the dragged task, in the direction it was dragged. The same algorithm runs in Python and TypeScript, tested against one shared table.
+- **Links between tasks, as a graph.** "A waits for B" is an edge in a per-user DAG. A link that would make a loop is refused (depth-first search, O(V + E)). Dragging is a snowball (one pass, O(V + E)): the dragged task lands exactly where you let go, and the linked tasks it reaches on the way join it and travel along. Creating a link repairs the order on the server with a two-pass topological sort (Kahn's algorithm with a priority queue, O((V + E) log V)), tested against a shared table. Chains are coloured by age (the oldest gets the first of six colours), so dragging never recolours one; a colour shifts only when an older chain appears or goes.
 - **AI that can't go wrong in a bad way.** Categories are suggested by TypeSafe's Jev, a classifier that can only answer with one of the person's own category ids, so the worst case is a wrong category, never injected text. Per-person limits and a monthly spend cap are checked in the database before every call, so every copy of the server shares them.
 - **Responsive and accessible.** Our own small stylesheet (an iPhone Notes look, light and dark), labelled controls, 44 px tap targets, and drag and drop by mouse, touch or keyboard (with screen-reader announcements); every drag has a keyboard alternative.
 - **Easy to run anywhere.** A stateless API on Postgres, one Docker image, and CI on every push.
@@ -59,7 +59,7 @@ flowchart LR
 
 - [x] Sign in from the landing page, or create an account
 - [x] See your tasks after signing in; only your own
-- [x] Reorder by drag and drop (mouse, touch, keyboard)
+- [x] Reorder by drag and drop (mouse, touch, keyboard); linked tasks travel with the dragged one
 - [x] Search, ignoring case and accents
 - [x] Open a task to view or edit it on its own screen
 - [x] Create, update, tick off and delete tasks
@@ -67,9 +67,10 @@ flowchart LR
 - [x] A title and an optional description per task
 - [x] Subtasks: a checklist in each task, with "1 of 3" in the list
 - [x] Categories, with AI suggestions and limits
-- [x] Links between tasks, with step numbers, group colours, and an order that keeps them
+- [x] Links between tasks, with step numbers, group colours, and an order that keeps them; an arrow shows the link while you drag it
 - [x] A graph view: steps as columns, links as arrows, subtasks as branches
 - [x] A Features tab and a Status page
+- [x] Completed tasks: a 5-second undo, Recently completed under the list, and a Completed page
 
 ### With more time
 
@@ -114,13 +115,13 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 
 ## Testing
 
-- **Backend:** 117 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
-- **Frontend:** 142 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
-- **Edge cases:** 47, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
+- **Backend:** 123 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
+- **Frontend:** 202 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
+- **Edge cases:** 58, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
 - **CI** (GitHub Actions) runs lint, types, both suites on both databases, and a Docker smoke test on every push.
 
 <details>
-<summary>The 47 edge cases</summary>
+<summary>The 58 edge cases</summary>
 
 | # | Case | Behaviour |
 |---|---|---|
@@ -144,6 +145,12 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 | E43–E44 | Saving an order from a stale tab; an order that breaks a link | 409 `ORDER_STALE`, the list refreshes; 409 `ORDER_BREAKS_LINK` |
 | E45 | Deleting a task others wait for | Its links go; dependents lose their step |
 | E46–E47 | Dragging while filtering by category; reduced motion or no View Transitions | No drag handles; changes apply without animation |
+| E48–E49 | Unticking within 5 seconds; reloading inside the window | The task stays; it shows under Recently completed |
+| E50–E51 | Unticking from Recently completed or the Completed page | Back in the list, in its old slot |
+| E52–E53 | Ticking the last open task of a chain; unticking one task of a finished chain | The chain leaves together; the whole chain comes back |
+| E54–E55 | Dragging with completed tasks hidden; linking to a completed task | Hidden tasks keep their slots; it comes back, greyed |
+| E56 | Deleting the last open task of a chain | Its done tasks close up at once, without the bar |
+| E57–E58 | Dragging a chain into the end of the list; Escape mid-drag | It stops like a pushed stack; everything goes back |
 
 </details>
 

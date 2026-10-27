@@ -97,6 +97,20 @@ export function sweep(
 }
 
 /**
+ * The whole order, with the tasks the list showed (and the person reordered) put back into the
+ * slots they held; every hidden task keeps its index. Safe because a hidden completed task has
+ * no link to a shown one (see inMainList), so the merge can't break a link. O(V).
+ */
+export function mergeOrder(
+  all: readonly string[],
+  reordered: readonly string[],
+): string[] {
+  const shown = new Set(reordered);
+  let next = 0;
+  return all.map((id) => (shown.has(id) ? reordered[next++] : id));
+}
+
+/**
  * Which slot a dragged row is over: how many of the other rows (their heights, in list order,
  * the dragged row left out) have their middle above the dragged row's top. O(V).
  */
@@ -232,3 +246,72 @@ export function linkInfo(tasks: readonly Task[]): Map<string, LinkInfo> {
   }
   return info;
 }
+
+/** How many completed tasks show under the list (spec §5.7). */
+export const RECENT_LIMIT = 5;
+
+/**
+ * The tasks in the main list (spec §5.7), in order: every open task; a completed one while its
+ * chain (its link group) is unfinished; and any task inside its 5-second undo window, or whose
+ * chain has a task in it, so a finished chain leaves all together. A finished chain has no link
+ * to anything that stays, which is what makes hiding it safe for dragging (mergeOrder).
+ * One linkGroups call: O(V + E).
+ */
+export function inMainList(
+  tasks: readonly Task[],
+  lingering: ReadonlySet<string>,
+): Task[] {
+  const groups = linkGroups(tasks);
+  const stays = (t: Task) => !t.completed || lingering.has(t.id);
+  // The chains that stay: any member open, or in its window.
+  const held = new Set<number>();
+  for (const t of tasks) {
+    const chain = groups.get(t.id);
+    if (chain && stays(t)) held.add(chain.group);
+  }
+  return tasks.filter((t) => {
+    const chain = groups.get(t.id);
+    return stays(t) || (chain !== undefined && held.has(chain.group));
+  });
+}
+
+/** Completed tasks, the most recently completed first. Compared as times, not text: the server
+ * writes "+00:00" and the browser "Z". O(V log V). */
+export function newestDone(tasks: readonly Task[]): Task[] {
+  const time = (t: Task) => (t.completed_at ? Date.parse(t.completed_at) : 0);
+  return tasks.filter((t) => t.completed).toSorted((a, b) => time(b) - time(a));
+}
+
+/**
+ * A day for a completed row: "today 10:31" (or just "today" without the time), "yesterday",
+ * "25 Oct", or "25 Oct 2025" in another year. Calendar days in the browser's time zone; Intl
+ * formats in its language.
+ */
+export function formatDay(
+  iso: string,
+  now = new Date(),
+  locale?: string,
+  time = true,
+) {
+  const date = new Date(iso);
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (date.toDateString() === now.toDateString())
+    return time
+      ? `today ${new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit" }).format(date)}`
+      : "today";
+  if (date.toDateString() === yesterday.toDateString()) return "yesterday";
+  return new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: date.getFullYear() === now.getFullYear() ? undefined : "numeric",
+  }).format(date);
+}
+
+/** A full date for the panel: "19 Oct 2026". */
+export const formatDate = (iso: string, locale?: string) =>
+  new Intl.DateTimeFormat(locale, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  }).format(new Date(iso));

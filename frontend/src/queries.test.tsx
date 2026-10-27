@@ -72,6 +72,30 @@ it("shows a toggle before the server answers", async () => {
   await waitFor(() => expect(result.current.toggle.isSuccess).toBe(true));
 });
 
+it("a tick stamps completed_at before the server answers", async () => {
+  const [a] = seedTasks(ada, ["a"]);
+  const { wait, release } = gate();
+  server.use(
+    http.patch("/api/tasks/:id", async () => {
+      await wait;
+    }),
+  );
+  const { result, queryClient } = renderHookWithClient(() => ({
+    list: useTasks(),
+    toggle: useToggleTask(),
+  }));
+  await waitFor(() => expect(result.current.list.data).toHaveLength(1));
+  expect(result.current.list.data?.[0].completed_at).toBeNull();
+  act(() => result.current.toggle.mutate({ id: a.id, completed: true }));
+  await waitFor(() =>
+    expect(
+      queryClient.getQueryData<Task[]>(TASKS_KEY)?.[0].completed_at,
+    ).toEqual(expect.any(String)),
+  );
+  release();
+  await waitFor(() => expect(result.current.toggle.isSuccess).toBe(true));
+});
+
 it("restores a deleted task when deletion fails", async () => {
   const [a] = seedTasks(ada, ["a"]);
   server.use(

@@ -2,6 +2,7 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import { db, seedTasks, seedUser } from "../test/fakeApi.ts";
+import { formatDate } from "../tasks.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -57,6 +58,16 @@ it("keeps the same panel when switching tasks and focuses the new title", async 
   // The same element: it slid in once and stays put while the task changes.
   expect(panel()).toBe(first);
   expect(within(panel()!).getByLabelText("Title")).toHaveFocus();
+});
+
+it("shows when the task was added", async () => {
+  renderApp(`/tasks?task=${venue.id}`, { as: ada });
+  const details = await screen.findByRole("complementary", {
+    name: "Task details",
+  });
+  expect(
+    within(details).getByText(`Added ${formatDate(venue.created_at)}`),
+  ).toBeInTheDocument();
 });
 
 it("opens the full page from the panel", async () => {
