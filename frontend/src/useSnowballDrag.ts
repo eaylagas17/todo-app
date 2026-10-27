@@ -120,13 +120,27 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
   }
 
   // Pointer: the finger's top, kept inside the list (§5.1), decides the slot.
+  // The slot counts only the rows outside the travelling group, since those are the rows it
+  // passes: the group's top (the finger's top, less any members riding above) against their
+  // heights, plus the members above. The group can change with the slot, so settle it: it
+  // stops changing within a step or two.
   function follow(d: Drag, top: number): Drag {
-    const height = d.heights.get(d.active)!;
-    const inside = Math.min(Math.max(top, 0), d.listHeight - height);
-    const others = d.start
-      .filter((id) => id !== d.active)
-      .map((id) => d.heights.get(id)!);
-    return moveTo(d, slotAt(inside, others), inside);
+    const height = (id: string) => d.heights.get(id)!;
+    const inside = Math.min(Math.max(top, 0), d.listHeight - height(d.active));
+    let { block } = d.preview;
+    let slot = d.slot;
+    // ponytail: up to 3 settling rounds, each O(V + E); a group only grows by what it reaches
+    for (let round = 0; round < 3; round++) {
+      const members = new Set(block);
+      const above = block.slice(0, block.indexOf(d.active));
+      const groupTop = inside - above.reduce((sum, id) => sum + height(id), 0);
+      const passable = d.start.filter((id) => !members.has(id)).map(height);
+      slot = slotAt(groupTop, passable) + above.length;
+      const next = sweep(d.start, waitsFor, d.active, slot).block;
+      if (next.join() === block.join()) break;
+      block = next;
+    }
+    return moveTo(d, slot, inside);
   }
 
   function finish(d: Drag) {
