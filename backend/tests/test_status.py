@@ -1,11 +1,7 @@
 import socket
 
-import pytest
-from sqlalchemy import select
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
-
-from app.models import AiCall, User
 
 
 def status(client) -> dict:
@@ -37,27 +33,24 @@ def test_status_survives_a_database_outage(client, monkeypatch):
     monkeypatch.setattr(Session, "scalar", broken)
     body = status(client)
     assert body["database"] == {"ok": False, "latency_ms": None}
-    assert body["ai"] is None
+    assert "ai_enabled" in body  # known without the database
 
 
-def test_status_reports_ai_usage(client, ada, db, monkeypatch):
+def test_status_shows_only_what_a_reviewer_needs(client, monkeypatch):
+    # No AI calls, spend or limits: operator numbers, not for a reviewer (Feedback 7).
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
-    user_id = db.scalar(select(User.id))
-    db.add_all(
-        [
-            AiCall(user_id=user_id, input_tokens=1000),
-            AiCall(user_id=user_id, input_tokens=3000),
-        ]
-    )
-    db.commit()
-    ai = status(client)["ai"]
-    assert ai["enabled"] is True
-    assert ai["calls_today"] == 2
-    assert ai["spent_this_month_usd"] == pytest.approx(4000 * 0.042 / 1_000_000)
-    assert ai["monthly_budget_usd"] == 1.0
-    assert (ai["per_user_per_minute"], ai["per_user_per_day"]) == (10, 100)
+    body = status(client)
+    assert set(body) == {
+        "version",
+        "replica",
+        "started_at",
+        "uptime_seconds",
+        "database",
+        "ai_enabled",
+    }
+    assert body["ai_enabled"] is True
 
 
 def test_status_says_ai_is_off_without_a_key(client, monkeypatch):
     monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    assert status(client)["ai"]["enabled"] is False
+    assert status(client)["ai_enabled"] is False
