@@ -94,7 +94,10 @@ export function TaskItem({
         } as CSSProperties
       }
     >
-      {handle}
+      {/* No handle while searching or filtering: an empty space as wide as one keeps the row's
+          steps and circles where they were. Completed rows have no handle column at all. */}
+      {handle ??
+        (!done && <span className="handle-space" aria-hidden="true" />)}
       {link ? (
         <span
           role="img"

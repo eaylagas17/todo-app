@@ -526,7 +526,13 @@ label {
   }
 }
 
-/* The handle is the only place a drag can start, so a finger on the rest of the row still scrolls. */
+/* The handle is the only place a drag can start, so a finger on the rest of the row still scrolls.
+   Without one (searching, filtering), .handle-space takes its width, so the rows don't shift. */
+.handle-space {
+  flex: none;
+  width: 36px;
+}
+
 .handle {
   min-width: 36px;
   padding: 0;
