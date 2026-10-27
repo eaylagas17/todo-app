@@ -20,15 +20,22 @@ const MAX_ZOOM = 1.5;
 const ZOOM_STEP = 0.25;
 const clamp = (zoom: number) => Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom));
 
+type Props = {
+  /** The tasks to draw (what the list would show). */
+  tasks: Task[];
+  /** The whole list, which steps, colours and "waiting" are computed from. */
+  all: Task[];
+};
+
 /** The same tasks as the list, drawn as steps from left to right (spec §10). */
-export function GraphView({ tasks }: { tasks: Task[] }) {
+export function GraphView({ tasks, all }: Props) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [zoom, setZoom] = useState(1);
   const { nodes, edges, width, height } = useMemo(
-    () => layoutGraph(tasks, folded),
-    [tasks, folded],
+    () => layoutGraph(tasks, folded, all),
+    [tasks, folded, all],
   );
-  const links = useMemo(() => linkInfo(tasks), [tasks]);
+  const links = useMemo(() => linkInfo(all), [all]);
   const byId = new Map(tasks.map((task) => [task.id, task]));
   const categories = useCategories();
   const [params] = useSearchParams();

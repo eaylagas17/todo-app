@@ -180,7 +180,7 @@ function TaskList({
     allOf(matchesSearch(query), inCategory(category)),
   );
   // The graph draws what the list would show, so search and the category filter apply.
-  if (view === "graph") return <GraphView tasks={visible} />;
+  if (view === "graph") return <GraphView tasks={visible} all={tasks.data} />;
   // From the whole list, not the visible part: a step counts every task before it.
   const links = linkInfo(tasks.data);
   if (visible.length === 0) {

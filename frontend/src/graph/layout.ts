@@ -35,13 +35,17 @@ const COL_W = NODE_W + COL_GAP;
  * Where everything goes (spec §10): steps are columns, left to right; each group of linked
  * tasks is a horizontal band; unlinked tasks share a last band. Within a column, tasks keep
  * their list order, each with its subtasks hanging below it unless folded.
+ *
+ * Only `tasks` are drawn, but groups and steps come from `all` (the whole list), so a search or
+ * a category filter hides tasks without changing anyone's step.
  */
 export function layoutGraph(
   tasks: readonly Task[],
   folded: ReadonlySet<string>,
+  all: readonly Task[] = tasks,
 ): { nodes: GraphNode[]; edges: GraphEdge[]; width: number; height: number } {
-  const groups = linkGroups(tasks);
-  const stepOf = steps(tasks);
+  const groups = linkGroups(all);
+  const stepOf = steps(all);
   const children = (task: Task) => (folded.has(task.id) ? [] : task.subtasks);
   const blockHeight = (task: Task) =>
     NODE_H + children(task).length * (CHILD_H + CHILD_GAP);
@@ -91,6 +95,7 @@ export function layoutGraph(
 
   let top = 0;
   for (const band of bands) {
+    if (!band) continue; // a group whose tasks are all hidden by a filter
     // The next free y in each column of this band; the band is as tall as its tallest column.
     const columnTop = new Map<number, number>();
     for (const task of band) {
