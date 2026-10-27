@@ -7,6 +7,7 @@ import { SignInPage } from "./pages/SignInPage.tsx";
 import { StatusPage } from "./pages/StatusPage.tsx";
 import { TaskDetailPage } from "./pages/TaskDetailPage.tsx";
 import { TaskListPage } from "./pages/TaskListPage.tsx";
+import { ThemeToggle } from "./components/ThemeToggle.tsx";
 
 function RequireAuth() {
   const auth = useAuth();
@@ -32,6 +33,7 @@ function RequireAuth() {
           <NavLink to="/status">Status</NavLink>
         </nav>
         <span className="email">{auth.user.email}</span>
+        <ThemeToggle />
         <button type="button" className="secondary" onClick={signOut}>
           Sign out
         </button>

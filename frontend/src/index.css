@@ -1,24 +1,30 @@
 /* Our own small stylesheet, in the spirit of iPhone Notes: tokens first, then elements, then
-   the screens. Every colour comes from a token, so dark mode only redefines the tokens. */
+   the screens. Every colour is a token holding its light and dark value (light-dark()), so the
+   theme is one property, color-scheme: the system's, or the one picked with the header toggle. */
 
 :root {
   color-scheme: light dark;
-  --bg: #f2f2f7; /* iOS grouped background */
-  --card: #ffffff;
-  --ink: #1c1c1e;
-  --sub: #6c6c70; /* secondary text: 5.2:1 on white */
-  --sep: rgb(60 60 67 / 0.2); /* hairline dividers */
-  --fill: rgb(118 118 128 / 0.12); /* search field */
-  --tint: #ffcc00; /* Notes yellow: icons and fills only, never text on white */
+  --bg: light-dark(#f2f2f7, #000000); /* iOS grouped background */
+  --card: light-dark(#ffffff, #1c1c1e);
+  --ink: light-dark(#1c1c1e, #f2f2f7);
+  --sub: light-dark(#6c6c70, #98989f); /* secondary text: 5.2:1 on white */
+  --sep: light-dark(
+    rgb(60 60 67 / 0.2),
+    rgb(84 84 88 / 0.65)
+  ); /* hairline dividers */
+  --fill: light-dark(
+    rgb(118 118 128 / 0.12),
+    rgb(118 118 128 / 0.24)
+  ); /* search field */
+  /* Notes yellow: icons and fills only, never text on white */
+  --tint: light-dark(#ffcc00, #ffd60a);
   --on-tint: #1c1c1e;
-  --link: #7a5d00; /* dark amber for link text: 5.9:1 on white */
-  --danger: #c4001a;
-  --focus: #0a6cff;
+  /* Link text: dark amber on white (5.9:1), yellow on near-black (13:1) */
+  --link: light-dark(#7a5d00, #ffd60a);
+  --danger: light-dark(#c4001a, #ff6961);
+  --focus: light-dark(#0a6cff, #4c9bff);
   --radius: 12px;
   --header: 3.5rem;
-  --step-bg: 86%; /* lightness of a step badge, in its group's hue */
-  --step-ink: 22%;
-  --node-bg: 95%; /* lightness of a linked task's node in the graph */
   font:
     17px/1.4 -apple-system,
     BlinkMacSystemFont,
@@ -29,22 +35,13 @@
     sans-serif;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #000000;
-    --card: #1c1c1e;
-    --ink: #f2f2f7;
-    --sub: #98989f;
-    --sep: rgb(84 84 88 / 0.65);
-    --fill: rgb(118 118 128 / 0.24);
-    --tint: #ffd60a;
-    --link: #ffd60a; /* yellow text is fine on near-black: 13:1 */
-    --danger: #ff6961;
-    --focus: #4c9bff;
-    --step-bg: 32%;
-    --step-ink: 90%;
-    --node-bg: 18%;
-  }
+/* A choice made with the toggle (saved, and put on <html> by index.html) beats the system's. */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 *,
@@ -213,6 +210,13 @@ label {
   font-weight: 800;
   color: var(--ink);
   text-decoration: none;
+}
+
+/* The theme toggle: a square icon button, 44px like every tap target. */
+.theme {
+  min-width: 44px;
+  padding: 0;
+  font-size: 1.1rem;
 }
 
 /* A long email shrinks to an ellipsis instead of pushing the header wider than a phone. */
@@ -735,8 +739,8 @@ label {
 }
 
 .step[role="img"] {
-  background: hsl(var(--hue) 70% var(--step-bg));
-  color: hsl(var(--hue) 60% var(--step-ink));
+  background: light-dark(hsl(var(--hue) 70% 86%), hsl(var(--hue) 70% 32%));
+  color: light-dark(hsl(var(--hue) 60% 22%), hsl(var(--hue) 60% 90%));
 }
 
 /* The icon is a mask, so its colour comes from CSS: the group's opposite hue, dark enough to
@@ -884,11 +888,12 @@ label {
   font-weight: 600;
 }
 
-/* Phones: the email and the app name give their room to the tabs; Sign out stays. */
+/* Phones: the email and the app name give their room to the tabs; the theme toggle and Sign
+   out stay, and the header's sides shrink so all of it fits a 360px screen. */
 @media (max-width: 499px) {
   .top {
     gap: 0.25rem;
-    padding: 0 0.5rem;
+    padding: 0 0.25rem;
   }
 
   .email,
@@ -1045,7 +1050,7 @@ label {
 }
 
 .node.linked {
-  background: hsl(var(--hue) 70% var(--node-bg));
+  background: light-dark(hsl(var(--hue) 70% 95%), hsl(var(--hue) 70% 18%));
 }
 
 .node-text {
