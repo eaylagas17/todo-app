@@ -56,15 +56,11 @@ def test_built_files_are_cached_forever_but_index_is_not(tmp_path):
     assert spa.get("/tasks/123").headers["cache-control"] == "no-cache"
 
 
-def test_seed_demo_is_idempotent(db):
+def test_demo_user_is_seeded_once_and_can_sign_in(client, db):
     seed_demo(db)
     seed_demo(db)
     assert db.scalar(select(func.count()).select_from(User)) == 1
     assert db.scalar(select(func.count()).select_from(Task)) == 7
-
-
-def test_demo_user_can_sign_in(client, db):
-    seed_demo(db)
     response = sign_in(client, "demo@example.com", "demo-password")
     assert response.status_code == 201
     demo = bearer(response.json()["token"])

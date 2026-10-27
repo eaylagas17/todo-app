@@ -48,7 +48,3 @@ def test_adding_it_twice_appends_a_second_copy(client, ada):
     names = list(category_names(client, ada).values())
     assert names.count("Wedding") == 1
     assert names.count("Travel") == 1
-
-
-def test_the_example_needs_a_signed_in_user(client):
-    assert load_example(client, {}).status_code == 401

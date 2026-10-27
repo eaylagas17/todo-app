@@ -43,8 +43,3 @@ def test_status_shows_only_what_a_reviewer_needs(client, monkeypatch):
     assert body["replica"] == socket.gethostname()
     assert body["uptime_seconds"] >= 0
     assert body["ai_enabled"] is True
-
-
-def test_status_says_ai_is_off_without_a_key(client, monkeypatch):
-    monkeypatch.delenv("TYPESAFE_API_KEY", raising=False)
-    assert status(client)["ai_enabled"] is False

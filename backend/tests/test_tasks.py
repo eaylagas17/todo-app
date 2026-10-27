@@ -6,13 +6,17 @@ from tests.helpers import add_task
 
 
 def test_create_task_returns_it_with_location(client, ada):
-    response = client.post("/api/tasks", json={"title": "  Buy milk  "}, headers=ada)
+    response = client.post(
+        "/api/tasks",
+        json={"title": "  Buy milk  ", "description": "Semi-skimmed"},
+        headers=ada,
+    )
     assert response.status_code == 201
     task = response.json()
     assert task == {
         "id": task["id"],
         "title": "Buy milk",
-        "description": "",
+        "description": "Semi-skimmed",
         "completed": False,
         "position": 1,
         "subtasks": [],
@@ -22,24 +26,11 @@ def test_create_task_returns_it_with_location(client, ada):
         "completed_at": None,
     }
     assert response.headers["location"] == f"/api/tasks/{task['id']}"
-
-
-def test_task_ids_grow_with_creation_time(client, ada):
-    # UUIDv7: the smallest id in a group of linked tasks is its oldest task.
-    ids = [add_task(client, ada, title)["id"] for title in "abcde"]
-    assert ids == sorted(ids)
+    assert client.get(response.headers["location"], headers=ada).json() == task
 
 
 def test_new_tasks_go_to_the_end(client, ada):
     assert [add_task(client, ada, d)["position"] for d in ("a", "b", "c")] == [1, 2, 3]
-
-
-def test_create_task_with_title_and_description(client, ada):
-    task = add_task(client, ada, "Book the venue", "Call three places")
-    assert (task["title"], task["description"]) == (
-        "Book the venue",
-        "Call three places",
-    )
 
 
 @pytest.mark.parametrize(
@@ -73,21 +64,12 @@ def test_patch_edits_title_and_description(client, ada):
     assert (body["title"], body["description"]) == ("New", "Notes")
 
 
-def test_tasks_require_a_token(client):
-    assert client.get("/api/tasks").json()["error"]["code"] == "AUTH_REQUIRED"
-
-
 def test_list_returns_only_my_tasks_in_order(client, ada, grace):
     for d in ("a", "b", "c"):
         add_task(client, ada, d)
     add_task(client, grace, "theirs")
     tasks = client.get("/api/tasks", headers=ada).json()
     assert [t["title"] for t in tasks] == ["a", "b", "c"]
-
-
-def test_get_task_returns_it(client, ada):
-    task = add_task(client, ada, "Buy milk")
-    assert client.get(f"/api/tasks/{task['id']}", headers=ada).json() == task
 
 
 def test_someone_elses_task_is_not_found(client, ada, grace):

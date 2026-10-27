@@ -229,7 +229,7 @@ it("says All done. when every task is completed", async () => {
   expect(titlesIn("Recently completed")).toEqual(["b", "a"]);
 });
 
-it("lists every completed task newest first on the Completed page", async () => {
+it("lists every completed task newest first on the Completed page, and search filters it", async () => {
   const [venue, invites, cake, milk] = seedTasks(ada, [
     "Book the venue",
     "Send invitations",
@@ -239,7 +239,7 @@ it("lists every completed task newest first on the Completed page", async () => 
   db.tasks.get(invites.id)!.task.waits_for = [venue.id];
   // The venue's chain is unfinished, so it's still greyed in the list; it's listed here too.
   completeInOrder([venue, cake, milk]);
-  renderApp("/tasks?list=completed", { as: ada });
+  const { user } = renderApp("/tasks?list=completed", { as: ada });
   expect(
     await screen.findByRole("heading", { name: "Completed" }),
   ).toBeInTheDocument();
@@ -251,6 +251,8 @@ it("lists every completed task newest first on the Completed page", async () => 
   ]);
   expect(screen.queryByLabelText("New task")).toBeNull();
   expect(screen.queryByRole("group", { name: "View" })).toBeNull();
+  await user.type(screen.getByLabelText("Search tasks"), "milk");
+  expect(titlesIn("Completed")).toEqual(["Buy milk"]);
 });
 
 it("unticking on the Completed page sends the task back", async () => {
@@ -263,14 +265,6 @@ it("unticking on the Completed page sends the task back", async () => {
   expect(titlesIn("Completed")).toEqual([]);
   await user.click(screen.getByRole("link", { name: /^All/ }));
   expect(titlesIn()).toEqual(["a", "b"]);
-});
-
-it("searching filters the Completed page", async () => {
-  completeInOrder(seedTasks(ada, ["Buy milk", "Pay rent"]));
-  const { user } = renderApp("/tasks?list=completed", { as: ada });
-  await checkbox("Buy milk");
-  await user.type(screen.getByLabelText("Search tasks"), "milk");
-  expect(titlesIn("Completed")).toEqual(["Buy milk"]);
 });
 
 it("shows an empty state when nothing is completed", async () => {

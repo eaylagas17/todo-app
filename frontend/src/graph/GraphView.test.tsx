@@ -43,7 +43,7 @@ it("opens the panel from a node", async () => {
   expect(screen.getByTestId("location")).toHaveTextContent("view=graph");
 });
 
-it("folds and unfolds subtasks", async () => {
+it("folds, unfolds and ticks subtasks", async () => {
   const { user } = renderApp("/tasks?view=graph", { as: ada });
   const area = await graph();
   const fold = await within(area).findByRole("button", {
@@ -56,13 +56,7 @@ it("folds and unfolds subtasks", async () => {
   expect(within(area).queryByRole("checkbox", { name: "Visit" })).toBeNull();
   await user.click(fold);
   expect(within(area).getByRole("checkbox", { name: "Visit" })).toBeVisible();
-});
-
-it("ticks a subtask in the graph", async () => {
-  const { user } = renderApp("/tasks?view=graph", { as: ada });
-  await user.click(
-    await within(await graph()).findByRole("checkbox", { name: "Shortlist" }),
-  );
+  await user.click(within(area).getByRole("checkbox", { name: "Shortlist" }));
   await waitFor(() =>
     expect(requests).toContainEqual({
       method: "PATCH",

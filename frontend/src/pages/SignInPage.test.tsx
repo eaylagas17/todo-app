@@ -1,5 +1,5 @@
 import { onlineManager } from "@tanstack/react-query";
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import type { UserEvent } from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { expect, it } from "vitest";
@@ -51,7 +51,7 @@ it("creates an account and shows the task list", async () => {
   expect(screen.getByText("grace@example.com")).toBeInTheDocument();
 });
 
-it("shows the server's message after a failed sign-in", async () => {
+it("shows the server's message when signing in or creating an account fails", async () => {
   seedUser();
   const { user } = renderApp("/login");
   await fillIn(user, "ada@example.com", "wrong-password");
@@ -59,15 +59,12 @@ it("shows the server's message after a failed sign-in", async () => {
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Invalid email or password",
   );
-});
-
-it("shows the server's message for a taken email", async () => {
-  seedUser();
-  const { user } = renderApp("/login");
-  await fillIn(user);
+  // The same form, now creating an account with the email that's taken.
   await user.click(screen.getByRole("button", { name: "Create account" }));
-  expect(await screen.findByRole("alert")).toHaveTextContent(
-    "Email is already registered",
+  await waitFor(() =>
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Email is already registered",
+    ),
   );
 });
 

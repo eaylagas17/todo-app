@@ -7,11 +7,7 @@ def operations(client) -> dict:
     }
 
 
-def test_docs_describe_validation_errors_as_400_not_422(client):
-    for name, responses in operations(client).items():
-        assert "422" not in responses, name
-
-
+# The table also proves FastAPI's default 422 is gone: it would show up as an extra code.
 def test_docs_list_the_errors_each_endpoint_returns(client):
     documented = {
         name: set(responses) - {"200", "201", "204"}
@@ -47,11 +43,8 @@ def test_docs_list_the_errors_each_endpoint_returns(client):
         "GET /api/health": {"503"},
         "GET /api/status": set(),
     }
-
-
-def test_docs_show_the_error_envelope(client):
-    spec = client.get("/openapi.json").json()
-    conflict = spec["paths"]["/api/users"]["post"]["responses"]["409"]
+    # Each error is documented with the error envelope.
+    conflict = operations(client)["POST /api/users"]["409"]
     assert conflict["content"]["application/json"]["schema"] == {
         "$ref": "#/components/schemas/ErrorOut"
     }
