@@ -32,7 +32,7 @@ beforeEach(() => {
   saveAuth(ada);
 });
 
-const descriptions = (tasks?: Task[]) => tasks?.map((t) => t.description);
+const titles = (tasks?: Task[]) => tasks?.map((t) => t.title);
 
 it("lists tasks in position order", async () => {
   const [c, a, b] = seedTasks(ada, ["c", "a", "b"]);
@@ -45,7 +45,7 @@ it("lists tasks in position order", async () => {
   });
   const { result } = renderHookWithClient(() => useTasks());
   await waitFor(() =>
-    expect(descriptions(result.current.data)).toEqual(["a", "b", "c"]),
+    expect(titles(result.current.data)).toEqual(["a", "b", "c"]),
   );
 });
 
@@ -91,7 +91,7 @@ it("restores a deleted task when deletion fails", async () => {
   await waitFor(() =>
     expect(result.current.remove.error?.message).toBe("Server exploded"),
   );
-  expect(descriptions(result.current.list.data)).toEqual(["a"]);
+  expect(titles(result.current.list.data)).toEqual(["a"]);
 });
 
 it("saves a move on the server", async () => {
@@ -103,7 +103,7 @@ it("saves a move on the server", async () => {
   await waitFor(() => expect(result.current.list.data).toHaveLength(3));
   act(() => result.current.move.mutate({ id: c.id, position: 1.5 }));
   await waitFor(() =>
-    expect(descriptions(result.current.list.data)).toEqual(["a", "c", "b"]),
+    expect(titles(result.current.list.data)).toEqual(["a", "c", "b"]),
   );
   expect(requests).toContainEqual({
     method: "PATCH",
@@ -130,21 +130,19 @@ it("applies two quick moves in a row", async () => {
       moveTask(result.current.list.data!, c.id, a.id)!,
     ),
   );
-  await waitFor(() =>
-    expect(result.current.list.data?.[0].description).toBe("c"),
-  );
+  await waitFor(() => expect(result.current.list.data?.[0].title).toBe("c"));
   act(() =>
     result.current.move.mutate(
       moveTask(result.current.list.data!, b.id, c.id)!,
     ),
   );
   await waitFor(() =>
-    expect(descriptions(result.current.list.data)).toEqual(["b", "c", "a"]),
+    expect(titles(result.current.list.data)).toEqual(["b", "c", "a"]),
   );
   release();
   await waitFor(() => expect(result.current.move.isSuccess).toBe(true));
   await waitFor(() =>
-    expect(descriptions(result.current.list.data)).toEqual(["b", "c", "a"]),
+    expect(titles(result.current.list.data)).toEqual(["b", "c", "a"]),
   );
 });
 
@@ -156,11 +154,11 @@ it("appends a created task to the list", async () => {
   await waitFor(() => expect(result.current.list.data).toEqual([]));
   act(() => result.current.create.mutate("Buy milk"));
   await waitFor(() =>
-    expect(descriptions(result.current.list.data)).toEqual(["Buy milk"]),
+    expect(titles(result.current.list.data)).toEqual(["Buy milk"]),
   );
 });
 
-it("updates the description in the list and detail caches", async () => {
+it("updates the title in the list and detail caches", async () => {
   const [milk] = seedTasks(ada, ["Buy milk"]);
   const { result, queryClient } = renderHookWithClient(() => ({
     list: useTasks(),
@@ -168,14 +166,17 @@ it("updates the description in the list and detail caches", async () => {
   }));
   await waitFor(() => expect(result.current.list.data).toHaveLength(1));
   act(() =>
-    result.current.update.mutate({ id: milk.id, description: "Buy oat milk" }),
+    result.current.update.mutate({
+      id: milk.id,
+      changes: { title: "Buy oat milk" },
+    }),
   );
   await waitFor(() =>
-    expect(queryClient.getQueryData<Task>(taskKey(milk.id))?.description).toBe(
+    expect(queryClient.getQueryData<Task>(taskKey(milk.id))?.title).toBe(
       "Buy oat milk",
     ),
   );
-  expect(result.current.list.data?.[0].description).toBe("Buy oat milk");
+  expect(result.current.list.data?.[0].title).toBe("Buy oat milk");
 });
 
 it("retries only failures that might pass a moment later", () => {

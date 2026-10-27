@@ -49,7 +49,15 @@ it("adds a task and clears the input", async () => {
   expect(screen.getByLabelText("New task")).toHaveValue("");
 });
 
-it("won't add a description that is only spaces", async () => {
+it("shows the description under the title", async () => {
+  const [venue] = seedTasks(ada, ["Book the venue"]);
+  db.tasks.get(venue.id)!.task.description = "Call three places\nThen pick one";
+  renderApp("/tasks", { as: ada });
+  expect(await screen.findByText("Call three places")).toBeInTheDocument();
+  expect(screen.queryByText(/Then pick one/)).not.toBeInTheDocument();
+});
+
+it("won't add a title that is only spaces", async () => {
   const { user } = renderApp("/tasks", { as: ada });
   await user.type(await screen.findByLabelText("New task"), "   ");
   expect(screen.getByRole("button", { name: "Add task" })).toBeDisabled();

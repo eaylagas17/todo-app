@@ -57,11 +57,16 @@ def list_tasks(db: Session, owner: User) -> list[Task]:
     return list(db.scalars(query))
 
 
-def create_task(db: Session, owner: User, description: str) -> Task:
+def create_task(db: Session, owner: User, title: str, description: str = "") -> Task:
     # Two requests at once can read the same MAX and get the same position. The tie is harmless
     # (created_at orders them); the fix is to lock the owner's row (SELECT ... FOR UPDATE) first.
     top = db.scalar(select(func.max(Task.position)).where(Task.owner_id == owner.id))
-    task = Task(owner_id=owner.id, description=description, position=(top or 0) + 1)
+    task = Task(
+        owner_id=owner.id,
+        title=title,
+        description=description,
+        position=(top or 0) + 1,
+    )
     db.add(task)
     db.commit()
     return task

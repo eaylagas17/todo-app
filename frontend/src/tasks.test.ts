@@ -7,9 +7,10 @@ import {
   positionBetween,
 } from "./tasks.ts";
 
-const task = (id: string, position: number, description = id): Task => ({
+const task = (id: string, position: number, title = id): Task => ({
   id,
-  description,
+  title,
+  description: "",
   completed: false,
   position,
 });
@@ -68,6 +69,13 @@ describe("matchesSearch", () => {
     expect(ids("cafe")).toEqual(["2"]);
     expect(ids("CAFÉ")).toEqual(["2"]);
   });
+  it("matches the description too", () =>
+    expect(
+      matchesSearch("three")({
+        ...task("4", 4, "Venue"),
+        description: "call three places",
+      }),
+    ).toBe(true));
   it("matches everything for a blank query", () =>
     expect(ids("  ")).toEqual(["1", "2", "3"]));
 });

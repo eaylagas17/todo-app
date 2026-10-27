@@ -70,6 +70,20 @@ nav ul:last-child {
   overflow-wrap: anywhere;
 }
 
+.task .title,
+.task .sub {
+  display: block;
+}
+
+/* The description's first line, grey, cut with an ellipsis so a long one stays one line. */
+.task .sub {
+  color: var(--pico-muted-color);
+  font-size: 0.875em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .task button {
   margin: 0.25rem 0;
 }

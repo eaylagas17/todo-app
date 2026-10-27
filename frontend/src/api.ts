@@ -4,6 +4,7 @@ export type User = { id: string; email: string };
 
 export type Task = {
   id: string;
+  title: string;
   description: string;
   completed: boolean;
   position: number;
@@ -105,8 +106,8 @@ export const listTasks = () => request<Task[]>("/tasks");
 
 export const getTask = (id: string) => request<Task>(taskPath(id));
 
-export const createTask = (description: string) =>
-  request<Task>("/tasks", { method: "POST", body: { description } });
+export const createTask = (title: string, description?: string) =>
+  request<Task>("/tasks", { method: "POST", body: { title, description } });
 
 export const updateTask = (id: string, changes: TaskChanges) =>
   request<Task>(taskPath(id), { method: "PATCH", body: changes });

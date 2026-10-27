@@ -19,7 +19,7 @@ export function TaskItem({ task, handle, ref, style }: Props) {
       <label className="tap">
         <input
           type="checkbox"
-          aria-label={`Complete ${task.description}`}
+          aria-label={`Complete ${task.title}`}
           checked={task.completed}
           onChange={(event) =>
             toggle.mutate({ id: task.id, completed: event.target.checked })
@@ -30,12 +30,15 @@ export function TaskItem({ task, handle, ref, style }: Props) {
         to={`/tasks/${task.id}`}
         className={task.completed ? "done" : undefined}
       >
-        {task.description}
+        <span className="title">{task.title}</span>
+        {task.description && (
+          <span className="sub">{task.description.split("\n")[0]}</span>
+        )}
       </Link>
       <button
         type="button"
         className="secondary outline"
-        aria-label={`Delete ${task.description}`}
+        aria-label={`Delete ${task.title}`}
         onClick={() => remove.mutate(task.id)}
       >
         Delete

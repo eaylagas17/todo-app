@@ -16,9 +16,10 @@ def normalize_email(value: str) -> str:
 
 Email = Annotated[str, AfterValidator(normalize_email)]
 Password = Annotated[str, StringConstraints(min_length=8, max_length=128)]
-Description = Annotated[
-    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=500)
+Title = Annotated[
+    str, StringConstraints(strip_whitespace=True, min_length=1, max_length=200)
 ]
+Body = Annotated[str, StringConstraints(max_length=2000)]
 Position = Annotated[float, Field(allow_inf_nan=False)]
 
 
@@ -46,19 +47,22 @@ class AuthOut(Output):
 
 
 class TaskCreate(Input):
-    description: Description
+    title: Title
+    description: Body = ""
 
 
 class TaskUpdate(Input):
     # Pydantic doesn't validate defaults: a field left out stays unset (and exclude_unset skips
     # it), while an explicit null fails the type check.
-    description: Description = None
+    title: Title = None
+    description: Body = None
     completed: bool = None
     position: Position = None
 
 
 class TaskOut(Output):
     id: uuid.UUID
+    title: str
     description: str
     completed: bool
     position: float

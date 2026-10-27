@@ -38,7 +38,8 @@ class Task(Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE")
     )
-    description: Mapped[str] = mapped_column(Text)
+    title: Mapped[str] = mapped_column(String(200))
+    description: Mapped[str] = mapped_column(Text, default="")
     completed: Mapped[bool] = mapped_column(default=False)
     position: Mapped[float]
     created_at: Mapped[datetime] = mapped_column(

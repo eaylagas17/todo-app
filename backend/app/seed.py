@@ -13,5 +13,5 @@ def seed_demo(db: Session) -> None:
         user = crud.create_user(db, DEMO_EMAIL, DEMO_PASSWORD)
     except EmailTaken:
         return
-    for description in DEMO_TASKS:
-        crud.create_task(db, user, description)
+    for title in DEMO_TASKS:
+        crud.create_task(db, user, title)

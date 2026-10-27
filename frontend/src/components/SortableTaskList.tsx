@@ -30,7 +30,7 @@ export function SortableTaskList({ tasks }: { tasks: Task[] }) {
   );
   // Announcements name tasks by their text: an id means nothing to a screen reader user.
   const name = (id: UniqueIdentifier) =>
-    tasks.find((task) => task.id === id)?.description;
+    tasks.find((task) => task.id === id)?.title;
 
   function drop({ active, over }: DragEndEvent) {
     const change = over && moveTask(tasks, String(active.id), String(over.id));
@@ -91,7 +91,7 @@ function SortableRow({ task }: { task: Task }) {
         <button
           type="button"
           className="handle secondary outline"
-          aria-label={`Reorder ${task.description}`}
+          aria-label={`Reorder ${task.title}`}
           ref={setActivatorNodeRef}
           {...attributes}
           {...listeners}
