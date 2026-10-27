@@ -47,7 +47,7 @@ it("moves a task with the keyboard", async () => {
       return new DOMRect(0, top, 300, 40);
     },
   );
-  const [a] = seedTasks(ada, ["a", "b", "c"]);
+  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await screen.findByRole("button", { name: "Reorder a" })).focus();
   const announced = () => screen.getByRole("status");
@@ -58,12 +58,12 @@ it("moves a task with the keyboard", async () => {
   await user.keyboard("[Space]");
   await waitFor(() => expect(announced()).toHaveTextContent("a was moved."));
   await waitFor(() => expect(taskLinks()).toEqual(["b", "a", "c"]));
-  // a now sits between b (2) and c (3).
+  // The whole list is saved in its new order.
   await waitFor(() =>
     expect(requests).toContainEqual({
-      method: "PATCH",
-      path: `/api/tasks/${a.id}`,
-      body: { position: 2.5 },
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: [b.id, a.id, c.id] },
     }),
   );
 });
@@ -82,5 +82,5 @@ it("says nothing moved when a task is dropped where it started", async () => {
       "Moving a was cancelled.",
     ),
   );
-  expect(requests.filter((r) => r.method === "PATCH")).toEqual([]);
+  expect(requests.filter((r) => r.method === "PUT")).toEqual([]);
 });

@@ -11,7 +11,7 @@ import {
   useTaskChangeError,
   useTasks,
 } from "../queries.ts";
-import { allOf, inCategory, matchesSearch } from "../tasks.ts";
+import { allOf, inCategory, linkInfo, matchesSearch } from "../tasks.ts";
 
 export function TaskListPage() {
   const tasks = useTasks();
@@ -142,17 +142,20 @@ function TaskList({
   const visible = tasks.data.filter(
     allOf(matchesSearch(query), inCategory(category)),
   );
+  // From the whole list, not the visible part: a step counts every task before it.
+  const links = linkInfo(tasks.data);
   if (visible.length === 0) {
     if (query.trim()) return <p>No tasks match "{query.trim()}".</p>;
     return <p>No tasks in this category.</p>;
   }
   // Edge cases E28 and E46: positions only make sense in the full list, so no dragging while
   // searching or filtering by category.
-  if (!query.trim() && !category) return <SortableTaskList tasks={visible} />;
+  if (!query.trim() && !category)
+    return <SortableTaskList tasks={visible} links={links} />;
   return (
     <ul className="tasks" aria-label="Tasks">
       {visible.map((task) => (
-        <TaskItem key={task.id} task={task} />
+        <TaskItem key={task.id} task={task} link={links.get(task.id)} />
       ))}
     </ul>
   );
