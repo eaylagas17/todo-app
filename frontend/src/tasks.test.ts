@@ -10,8 +10,10 @@ import {
   matchesSearch,
   moveWithLinks,
   repair,
+  slotAt,
   steps,
   subtaskProgress,
+  sweep,
 } from "./tasks.ts";
 
 const task = (id: string, position: number, title = id): Task => ({
@@ -87,6 +89,52 @@ describe("moveWithLinks", () => {
     ).toEqual(["c", "a", "b"]));
   it("ignores a drop in place", () =>
     expect(moveWithLinks([task("a", 1), task("b", 2)], "b", "b")).toBeNull());
+});
+
+describe("sweep", () => {
+  // B waits for A, and C waits for B.
+  const order = ["A", "X", "B", "Y", "C", "Z", "W"];
+  const waits = { B: ["A"], C: ["B"] };
+  it("lands the dragged task exactly at the slot and brings what it reached", () =>
+    expect(sweep(order, waits, "A", 3)).toEqual({
+      order: ["X", "Y", "Z", "A", "B", "C", "W"],
+      block: ["A", "B", "C"],
+    }));
+  it("leaves a linked task alone until it is reached", () =>
+    expect(sweep(order, waits, "A", 1)).toEqual({
+      order: ["X", "A", "B", "Y", "C", "Z", "W"],
+      block: ["A"],
+    }));
+  it("gathers prerequisites going up and stops at the top", () =>
+    expect(sweep(order, waits, "C", 0)).toEqual({
+      order: ["A", "B", "C", "X", "Y", "Z", "W"],
+      block: ["A", "B", "C"],
+    }));
+  it("stops at the bottom like a pushed stack", () =>
+    expect(
+      sweep(["V", "K", "G", "I", "S"], { I: ["V", "G"], S: ["I"] }, "V", 4)
+        .order,
+    ).toEqual(["K", "G", "V", "I", "S"]));
+  it("returns the same order for a drop in place", () =>
+    expect(sweep(order, waits, "A", 0)).toEqual({ order, block: ["A"] }));
+  it("keeps every link for every task and every slot", () => {
+    for (const id of order)
+      for (let slot = 0; slot < order.length; slot++) {
+        const result = sweep(order, waits, id, slot).order;
+        const at = (t: string) => result.indexOf(t);
+        for (const [t, prerequisites] of Object.entries(waits))
+          for (const p of prerequisites) expect(at(p)).toBeLessThan(at(t));
+      }
+  });
+});
+
+describe("slotAt", () => {
+  it("counts the rows whose middle is above the top", () =>
+    expect([0, 21, 61].map((top) => slotAt(top, [40, 40, 40]))).toEqual([
+      0, 1, 2,
+    ]));
+  it("passes a taller row only after its middle", () =>
+    expect([80, 91].map((top) => slotAt(top, [40, 100, 40]))).toEqual([1, 2]));
 });
 
 describe("linkGroups", () => {
