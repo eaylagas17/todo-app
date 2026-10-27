@@ -60,12 +60,28 @@ class TaskUpdate(Input):
     position: Position = None
 
 
+class SubtaskCreate(Input):
+    title: Title
+
+
+class SubtaskUpdate(Input):
+    title: Title = None
+    completed: bool = None
+
+
+class SubtaskOut(Output):
+    id: uuid.UUID
+    title: str
+    completed: bool
+
+
 class TaskOut(Output):
     id: uuid.UUID
     title: str
     description: str
     completed: bool
     position: float
+    subtasks: list[SubtaskOut]
 
 
 class ErrorDetail(Output):

@@ -41,6 +41,12 @@ class TaskNotFound(AppError):
     message = "Task not found"
 
 
+class SubtaskNotFound(AppError):
+    status_code = 404
+    code = "SUBTASK_NOT_FOUND"
+    message = "Subtask not found"
+
+
 class ServiceUnavailable(AppError):
     status_code = 503
     code = "SERVICE_UNAVAILABLE"

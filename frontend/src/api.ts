@@ -2,12 +2,15 @@ import { clearAuth, getAuth } from "./auth.ts";
 
 export type User = { id: string; email: string };
 
+export type Subtask = { id: string; title: string; completed: boolean };
+
 export type Task = {
   id: string;
   title: string;
   description: string;
   completed: boolean;
   position: number;
+  subtasks: Subtask[];
 };
 
 export type AuthResult = { user: User; token: string };
@@ -100,7 +103,7 @@ export const register = (email: string, password: string) =>
 export const logout = () =>
   request<void>("/sessions/current", { method: "DELETE" });
 
-export type TaskChanges = Partial<Omit<Task, "id">>;
+export type TaskChanges = Partial<Omit<Task, "id" | "subtasks">>;
 
 // encodeURIComponent: an id taken from the page's URL can't change which API path is called.
 const taskPath = (id: string) => `/tasks/${encodeURIComponent(id)}`;
@@ -117,3 +120,23 @@ export const updateTask = (id: string, changes: TaskChanges) =>
 
 export const deleteTask = (id: string) =>
   request<void>(taskPath(id), { method: "DELETE" });
+
+const subtasksPath = (taskId: string) => `${taskPath(taskId)}/subtasks`;
+const subtaskPath = (taskId: string, subtaskId: string) =>
+  `${subtasksPath(taskId)}/${encodeURIComponent(subtaskId)}`;
+
+export const addSubtask = (taskId: string, title: string) =>
+  request<Subtask>(subtasksPath(taskId), { method: "POST", body: { title } });
+
+export const updateSubtask = (
+  taskId: string,
+  subtaskId: string,
+  changes: Partial<Omit<Subtask, "id">>,
+) =>
+  request<Subtask>(subtaskPath(taskId, subtaskId), {
+    method: "PATCH",
+    body: changes,
+  });
+
+export const deleteSubtask = (taskId: string, subtaskId: string) =>
+  request<void>(subtaskPath(taskId, subtaskId), { method: "DELETE" });

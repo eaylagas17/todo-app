@@ -45,3 +45,21 @@ class Task(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
+    # Deleting a task deletes its subtasks: the ORM does it, so SQLite needs no foreign-key pragma.
+    subtasks: Mapped[list[Subtask]] = relationship(
+        order_by="Subtask.created_at", cascade="all, delete-orphan"
+    )
+
+
+class Subtask(Base):
+    __tablename__ = "subtasks"
+
+    id: Mapped[uuid.UUID] = mapped_column(primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("tasks.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(200))
+    completed: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
