@@ -44,7 +44,7 @@ cd ../frontend && npm ci && npm test
 - **Async through one abstraction.** TanStack Query handles caching and retries. Its optimistic updates roll back, with the server's reason, if a change is refused, and changes to a task are sent in click order.
 - **Functional style.** Pure, immutable helpers in `tasks.ts`: higher-order filters composed with `allOf`, and `sweep`, which returns a new order.
 - **Links as a graph.** Each person's tasks form a DAG. Loops are refused (depth-first search, O(V + E)). Dragging moves linked tasks together, and a new link repairs the order with a stable topological sort.
-- **Bounded AI.** The classifier can only pick one of your own categories. Per-person and monthly limits are checked in the database.
+- **Bounded AI.** The classifier can only pick one of your own categories. Each person gets 10 suggestions a minute and 100 a day, under one app-wide monthly spending cap; all three are checked in the database.
 - **Responsive and accessible.** A light and dark Notes-style UI, labelled controls, 44 px touch targets, and drag and drop by mouse, touch or keyboard.
 
 ```mermaid
