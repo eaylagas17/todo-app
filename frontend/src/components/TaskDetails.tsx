@@ -11,6 +11,7 @@ import {
   useUpdateTask,
 } from "../queries.ts";
 import { subtaskProgress } from "../tasks.ts";
+import { useLinger } from "../useLinger.tsx";
 import { TaskLinks } from "./TaskLinks.tsx";
 
 type Props = {
@@ -25,6 +26,7 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
   const [description, setDescription] = useState(task.description);
   const update = useUpdateTask();
   const toggle = useToggleTask();
+  const linger = useLinger();
   const remove = useDeleteTask();
   const categories = useCategories();
   const file = useSetCategory();
@@ -105,9 +107,13 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
           <input
             type="checkbox"
             checked={completed}
-            onChange={(event) =>
-              toggle.mutate({ id: task.id, completed: event.target.checked })
-            }
+            onChange={(event) => {
+              const completed = event.target.checked;
+              toggle.mutate({ id: task.id, completed });
+              // The same 5-second window as the row's circle (spec §5.7).
+              if (completed) linger.start(task.id);
+              else linger.stop(task.id);
+            }}
           />
           Done
         </label>

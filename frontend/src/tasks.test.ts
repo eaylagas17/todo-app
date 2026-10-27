@@ -310,6 +310,10 @@ describe("formatDay and formatDate", () => {
     expect(formatDay(at(2025, 9, 25, 12, 0), now, "en-GB")).toBe(
       "25 Oct 2025",
     ));
+  it("leaves the time out when asked", () =>
+    expect(formatDay(at(2026, 9, 27, 10, 31), now, "en-GB", false)).toBe(
+      "today",
+    ));
   it("gives a full date for the panel", () =>
     expect(formatDate(at(2026, 9, 19, 12, 0), "en-GB")).toBe("19 Oct 2026"));
 });
