@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "./api.ts";
-import cases from "../../shared/repair-cases.json";
 import {
   allOf,
   byPosition,
@@ -8,7 +7,6 @@ import {
   isWaiting,
   linkGroups,
   matchesSearch,
-  repair,
   slotAt,
   steps,
   subtaskProgress,
@@ -46,21 +44,6 @@ describe("byPosition", () => {
     byPosition(input);
     expect(input.map((t) => t.id)).toEqual(["b", "a"]);
   });
-});
-
-describe("repair", () => {
-  // The same table the backend's repair is tested against.
-  it.each(cases)("$name", ({ desired, waits_for, direction, expected }) =>
-    expect(
-      repair(
-        desired,
-        waits_for as Record<string, string[]>,
-        direction as "down" | "up",
-      ),
-    ).toEqual(expected),
-  );
-  it("refuses a loop", () =>
-    expect(() => repair(["A", "B"], { A: ["B"], B: ["A"] }, "down")).toThrow());
 });
 
 describe("sweep", () => {
