@@ -4,7 +4,7 @@ import { useLoadExample } from "../queries.ts";
 
 type Feature = { title: string; what: string; how: string; to: string };
 
-/** One card per feature (spec §12): what it does, how to try it, and a way there. */
+/** One card per feature: what it does, how to try it, and a way there. */
 export const FEATURES: Feature[] = [
   {
     title: "Linked tasks",

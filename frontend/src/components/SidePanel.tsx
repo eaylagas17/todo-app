@@ -9,7 +9,7 @@ type Props = {
 
 /**
  * A task beside the list on wide screens, and a sheet from the bottom on phones (CSS only). It
- * stays mounted while open, so it slides in once (spec §5.6); switching tasks swaps its content.
+ * stays mounted while open, so it slides in once; switching tasks swaps its content.
  */
 export function SidePanel({ title, taskId, onClose, children }: Props) {
   const panel = useRef<HTMLElement>(null);

@@ -11,7 +11,7 @@ type Props = {
   tasks: Task[];
   categories: Category[];
   selected: string | null;
-  /** The Completed page is showing (spec §5.7). */
+  /** The Completed page is showing. */
   showingCompleted: boolean;
 };
 

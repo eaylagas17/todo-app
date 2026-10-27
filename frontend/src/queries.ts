@@ -56,7 +56,7 @@ export const createQueryClient = (retries = 3) =>
   });
 
 export const TASKS_KEY = ["tasks"] as const;
-export const CATEGORIES_KEY = ["categories"] as const;
+const CATEGORIES_KEY = ["categories"] as const;
 export const taskKey = (id: string) => [...TASKS_KEY, id] as const;
 
 const withChanges = (tasks: Task[], id: string, changes: TaskChanges) =>
@@ -103,7 +103,7 @@ export function useCreateTask() {
   const suggest = useSuggestCategory();
   return useMutation({
     // Wrapped: TanStack Query passes a second argument, which createTask would take as the description.
-    mutationFn: (title: string) => createTask(title),
+    mutationFn: createTask,
     onMutate: startSession,
     onSuccess: (task, _title, started) => {
       if (!stillCurrent(started)) return;
@@ -149,13 +149,13 @@ function writeTask(queryClient: QueryClient, task: Task) {
 }
 
 /**
- * Asks for a category in the background. Quiet by design (spec §9): no key, a slow Jev or a
+ * Asks for a category in the background. Quiet by design: no key, a slow Jev or a
  * limit leave the task as it was, and nothing on screen reads this mutation's error.
  */
-export function useSuggestCategory() {
+function useSuggestCategory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (taskId: string) => suggestCategory(taskId),
+    mutationFn: suggestCategory,
     onMutate: startSession,
     onSuccess: (task, _taskId, started) => {
       if (stillCurrent(started)) writeTask(queryClient, task);
@@ -167,7 +167,7 @@ export function useSuggestCategory() {
  * A write that shows on screen before the server answers. `send` talks to the server;
  * `apply` makes the same change to the cached list. If the server refuses, the list is put back.
  */
-export function useOptimisticTaskMutation<V>(
+function useOptimisticTaskMutation<V>(
   send: (variables: V) => Promise<unknown>,
   apply: (tasks: Task[], variables: V) => Task[],
   { animate = false } = {},
@@ -199,9 +199,8 @@ export function useOptimisticTaskMutation<V>(
     onSettled: () => {
       // Refetch only after the last pending change: an earlier refetch would bring back
       // the server's list without the changes still on their way, and undo them on screen.
-      if (queryClient.isMutating({ mutationKey: TASKS_KEY }) === 1) {
+      if (queryClient.isMutating({ mutationKey: TASKS_KEY }) === 1)
         return queryClient.invalidateQueries({ queryKey: TASKS_KEY });
-      }
     },
   });
 }
@@ -329,7 +328,7 @@ export const useCategories = () =>
 export function useCreateCategory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (name: string) => createCategory(name),
+    mutationFn: createCategory,
     onMutate: startSession,
     onSuccess: (category, _name, started) => {
       if (!stillCurrent(started)) return;
@@ -359,7 +358,7 @@ export function useRenameCategory() {
 export function useDeleteCategory() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => deleteCategory(id),
+    mutationFn: deleteCategory,
     onMutate: startSession,
     onSuccess: (_nothing, id, started) => {
       if (!stillCurrent(started)) return;
@@ -379,7 +378,7 @@ export function useDeleteCategory() {
 export function useLoadExample() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: () => loadExample(),
+    mutationFn: loadExample,
     onMutate: startSession,
     onSuccess: (tasks, _nothing, started) => {
       if (!stillCurrent(started)) return;

@@ -9,7 +9,7 @@ import {
 } from "../queries.ts";
 import { formatDay, type LinkInfo, subtaskProgress } from "../tasks.ts";
 import { useLinger } from "../useLinger.tsx";
-import { useLinkDrag } from "../useLinkDrag.ts";
+import { useLinkDrag } from "../useLinkDrag.tsx";
 
 type Props = {
   task: Task;
@@ -21,7 +21,7 @@ type Props = {
   lift?: "lifted" | "swept";
   /** A row in a completed list: when it was done and added, instead of the preview. */
   done?: boolean;
-  /** Opening into its list, or closing up on its way out (spec §5.7). */
+  /** Opening into its list, or closing up on its way out. */
   phase?: "entering" | "leaving";
   /** Ticked, and leaves the list when its 5-second window ends: show the draining bar. */
   leavingSoon?: boolean;

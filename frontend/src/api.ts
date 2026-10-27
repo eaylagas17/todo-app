@@ -126,8 +126,8 @@ export const listTasks = () => request<Task[]>("/tasks");
 
 export const getTask = (id: string) => request<Task>(taskPath(id));
 
-export const createTask = (title: string, description?: string) =>
-  request<Task>("/tasks", { method: "POST", body: { title, description } });
+export const createTask = (title: string) =>
+  request<Task>("/tasks", { method: "POST", body: { title } });
 
 export const updateTask = (id: string, changes: TaskChanges) =>
   request<Task>(taskPath(id), { method: "PATCH", body: changes });
@@ -205,5 +205,5 @@ export type Status = {
   ai_enabled: boolean;
 };
 
-/** Public: this copy of the server's version, name and health (spec §14). */
+/** Public: this copy of the server's version, name and health. */
 export const getStatus = () => request<Status>("/status");

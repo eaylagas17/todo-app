@@ -1,5 +1,6 @@
 import { type FormEvent, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import type { Task } from "../api.ts";
 import { CategorySidebar } from "../components/CategorySidebar.tsx";
 import { SidePanel } from "../components/SidePanel.tsx";
 import { SortableTaskList } from "../components/SortableTaskList.tsx";
@@ -14,8 +15,6 @@ import {
   useTasks,
 } from "../queries.ts";
 import {
-  allOf,
-  inCategory,
   inMainList,
   linkInfo,
   matchesSearch,
@@ -35,11 +34,11 @@ export function TaskListPage() {
   const open = tasks.data?.find((task) => task.id === openId);
   const categories = useCategories();
   const wanted = params.get("category");
-  // A filter on a category that no longer exists falls back to All (Review Focus 4).
+  // A filter on a category that no longer exists falls back to All.
   const category = categories.data?.some((c) => c.id === wanted)
     ? wanted
     : null;
-  // The Completed page (spec §5.7) is this page in another mode, so the panel and search work
+  // The Completed page is this page in another mode, so the panel and search work
   // the same: /tasks?list=completed.
   const showingCompleted = params.get("list") === "completed";
 
@@ -225,10 +224,12 @@ function TaskList({
     );
   }
   // Derived, not stored: the main list, the visible part and Recently completed are all
-  // recomputed from the cache, the undo windows and the query (spec §5.7).
+  // recomputed from the cache, the undo windows and the query.
   const main = inMainList(all, lingering);
   const inMain = new Set(main.map((task) => task.id));
-  const filter = allOf(matchesSearch(query), inCategory(category));
+  const matches = matchesSearch(query);
+  const filter = (task: Task) =>
+    matches(task) && (category === null || task.category_id === category);
   const visible = main.filter(filter);
   // A lingering task that leaves when its window ends gets the draining bar; one whose chain is
   // still unfinished stays anyway, so it gets none.

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import type { Task } from "../api.ts";
 import { useReorder } from "../queries.ts";
-import { type LinkInfo, mergeOrder, waitsForMap } from "../tasks.ts";
+import { type LinkInfo, mergeOrder } from "../tasks.ts";
 import { useLeaving } from "../useLeaving.ts";
 import { useSnowballDrag } from "../useSnowballDrag.ts";
 import { TaskItem } from "./TaskItem.tsx";
@@ -14,7 +14,7 @@ type Props = {
   leavingSoon: ReadonlySet<string>;
 };
 
-/** The list in its saved order, reordered by dragging a row's handle (spec §5.1, §5.2). */
+/** The list in its saved order, reordered by dragging a row's handle. */
 export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
   const reorder = useReorder();
   // While a drag (and its drop) is on screen, the rows it measured stay: a row leaving the list
@@ -34,10 +34,12 @@ export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
   const titles = new Map(shown.map((task) => [task.id, task.title]));
   const drag = useSnowballDrag({
     ids,
-    waitsFor: waitsForMap(shown),
+    waitsFor: Object.fromEntries(
+      shown.map((task) => [task.id, task.waits_for]),
+    ),
     titleOf: (id) => titles.get(id) ?? "",
     // The whole list in its new order, exactly as the drag showed it, with the hidden completed
-    // tasks kept in their slots (spec §5.7).
+    // tasks kept in their slots.
     onDrop: (order) =>
       reorder.mutate({ ids: mergeOrder(allIds, order), previous: allIds }),
   });

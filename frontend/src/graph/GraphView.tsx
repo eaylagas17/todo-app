@@ -12,7 +12,7 @@ import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
 import { useCategories, useLink, useToggleSubtask } from "../queries.ts";
 import { linkInfo, subtaskProgress } from "../tasks.ts";
-import { useLinkDrag } from "../useLinkDrag.ts";
+import { useLinkDrag } from "../useLinkDrag.tsx";
 import { layoutGraph } from "./layout.ts";
 
 const MIN_ZOOM = 0.5;
@@ -27,7 +27,7 @@ type Props = {
   all: Task[];
 };
 
-/** The same tasks as the list, drawn as steps from left to right (spec §10). */
+/** The same tasks as the list, drawn as steps from left to right. */
 export function GraphView({ tasks, all }: Props) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [zoom, setZoom] = useState(1);
