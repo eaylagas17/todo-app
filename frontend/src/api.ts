@@ -90,7 +90,10 @@ export async function request<T>(
       error instanceof DOMException && error.name === "TimeoutError",
     );
   }
-  if (response.status === 401 && auth) clearAuth();
+  // Only if this request was sent with the current session: a late 401 for a previous user
+  // (signed out, someone else signed in) must not sign the new user out.
+  if (response.status === 401 && auth && getAuth()?.token === auth.token)
+    clearAuth();
   if (!response.ok) throw await toApiError(response);
   return response.status === 204
     ? (undefined as T)
@@ -182,3 +185,7 @@ export const unlinkTasks = (taskId: string, dependsOnId: string) =>
 /** The whole list's new order, top to bottom. */
 export const saveOrder = (ids: string[]) =>
   request<Task[]>("/task-order", { method: "PUT", body: { ids } });
+
+/** Adds the wedding example to the signed-in user's list. Answers with the whole list. */
+export const loadExample = () =>
+  request<Task[]>("/examples", { method: "POST" });
