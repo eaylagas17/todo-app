@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode, Ref } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
 import { useDeleteTask, useToggleTask } from "../queries.ts";
 
@@ -13,6 +13,10 @@ type Props = {
 export function TaskItem({ task, handle, ref, style }: Props) {
   const toggle = useToggleTask();
   const remove = useDeleteTask();
+  const [params] = useSearchParams();
+  // Opening a task changes only ?task, so a filter or a view in the URL stays as it is.
+  const panel = new URLSearchParams(params);
+  panel.set("task", task.id);
   return (
     <li className="task" ref={ref} style={style}>
       {handle}
@@ -27,8 +31,9 @@ export function TaskItem({ task, handle, ref, style }: Props) {
         />
       </label>
       <Link
-        to={`/tasks/${task.id}`}
+        to={{ search: panel.toString() }}
         className={task.completed ? "done" : undefined}
+        aria-current={params.get("task") === task.id ? "true" : undefined}
       >
         <span className="title">{task.title}</span>
         {task.description && (
@@ -37,7 +42,7 @@ export function TaskItem({ task, handle, ref, style }: Props) {
       </Link>
       <button
         type="button"
-        className="secondary outline"
+        className="delete"
         aria-label={`Delete ${task.title}`}
         onClick={() => remove.mutate(task.id)}
       >

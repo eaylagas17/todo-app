@@ -34,7 +34,7 @@ export function SignInPage() {
   }
 
   return (
-    <main className="container narrow">
+    <main className="page narrow">
       <h1>Sign in</h1>
       <form
         ref={form}
@@ -58,7 +58,7 @@ export function SignInPage() {
           />
         </label>
         {attempt.error && <p role="alert">{attempt.error.message}</p>}
-        <div className="grid">
+        <div className="actions">
           <button
             type="submit"
             disabled={attempt.isPending}

@@ -90,7 +90,7 @@ function SortableRow({ task }: { task: Task }) {
       handle={
         <button
           type="button"
-          className="handle secondary outline"
+          className="handle"
           aria-label={`Reorder ${task.title}`}
           ref={setActivatorNodeRef}
           {...attributes}

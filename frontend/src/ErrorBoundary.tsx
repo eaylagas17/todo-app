@@ -14,7 +14,7 @@ export class ErrorBoundary extends Component<Props, State> {
   render() {
     if (!this.state.failed) return this.props.children;
     return (
-      <main className="container">
+      <main className="page">
         <h1>Something went wrong</h1>
         <button type="button" onClick={() => location.reload()}>
           Reload

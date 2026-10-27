@@ -20,24 +20,14 @@ function RequireAuth() {
 
   return (
     <>
-      <header className="container">
-        <nav>
-          <ul>
-            <li>
-              <Link to="/tasks">
-                <strong>To-Do</strong>
-              </Link>
-            </li>
-          </ul>
-          <ul>
-            <li className="email">{auth.user.email}</li>
-            <li>
-              <button type="button" className="secondary" onClick={signOut}>
-                Sign out
-              </button>
-            </li>
-          </ul>
-        </nav>
+      <header className="top">
+        <Link to="/tasks" className="brand">
+          To-Do
+        </Link>
+        <span className="email">{auth.user.email}</span>
+        <button type="button" className="secondary" onClick={signOut}>
+          Sign out
+        </button>
       </header>
       <Outlet />
     </>
