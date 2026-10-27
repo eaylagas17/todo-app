@@ -234,6 +234,9 @@ label {
 .layout {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
+  /* The panel slides in from beyond the right edge; clip, unlike hidden, keeps the panel's
+     position: sticky working and never shows a scrollbar. */
+  overflow-x: clip;
 }
 
 @media (min-width: 700px) {
@@ -450,7 +453,10 @@ label {
 }
 
 /* The task editor, in the panel, the sheet or the page. */
-.details form {
+/* Forms stack their fields with the same 1rem gap: the task editor, and the sign-in form (whose
+   inputs used to touch the next label and the buttons). */
+.details form,
+.signin {
   display: grid;
   gap: 1rem;
   margin-bottom: 1rem;
@@ -526,6 +532,33 @@ label {
 @keyframes sheet-up {
   from {
     transform: translateY(100%);
+  }
+}
+
+/* Wide screens: the panel slides in from the right when it opens (spec §5.6). It stays mounted
+   while open, so switching tasks doesn't replay it. */
+@media (min-width: 700px) and (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: panel-in 0.25s ease-out;
+  }
+}
+
+@keyframes panel-in {
+  from {
+    transform: translateX(100%);
+  }
+}
+
+/* Reduced motion: a short fade instead of a slide, on any screen. */
+@media (prefers-reduced-motion: reduce) {
+  .panel {
+    animation: panel-fade 0.15s ease-out;
+  }
+}
+
+@keyframes panel-fade {
+  from {
+    opacity: 0;
   }
 }
 

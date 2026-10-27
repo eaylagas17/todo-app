@@ -111,12 +111,9 @@ export function slotAt(top: number, heights: readonly number[]): number {
   return slot;
 }
 
-// Soft hues (degrees on the colour wheel), one per group.
-const PALETTE = [35, 150, 210, 280, 340, 95];
-
-// A small string hash, so any id (a UUID, or "id-3" in the tests) picks a palette entry.
-const hash = (text: string) =>
-  [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0);
+// Soft hues (degrees on the colour wheel), in hand-out order: neighbours are far apart, so the
+// first few chains are clearly different (blue, orange, green, purple, pink, lime).
+const PALETTE = [210, 30, 140, 280, 340, 90];
 
 /** Adds to a key's list in place: O(1). Copying the list on every add would be O(k²) for k. */
 function append(lists: Map<string, string[]>, key: string, value: string) {
@@ -135,8 +132,12 @@ function presentLinks(tasks: readonly Task[]) {
 
 /**
  * Linked tasks form groups (connected components, links taken both ways), found by
- * breadth-first search. Groups are numbered by first appearance in the list. A group's colour
- * comes from its oldest task: ids are UUIDv7, so the smallest id is the oldest.
+ * breadth-first search. Groups are numbered by first appearance in the list.
+ *
+ * Colours are handed out by age (spec §5.5): the group whose oldest task is oldest gets the first
+ * colour, the next the second, and so on (ids are UUIDv7, so the smallest id is the oldest). Up
+ * to six chains always differ, and dragging never recolours one, because age doesn't change with
+ * order. A chain's colour shifts only when an older chain appears or goes.
  */
 export function linkGroups(
   tasks: readonly Task[],
@@ -147,10 +148,10 @@ export function linkGroups(
       append(neighbours, id, p);
       append(neighbours, p, id);
     }
-  const groups = new Map<string, { group: number; hue: number }>();
-  let group = 0;
+  const groupOf = new Map<string, number>();
+  const oldest: string[] = []; // per group
   for (const { id } of tasks) {
-    if (!neighbours.has(id) || groups.has(id)) continue;
+    if (!neighbours.has(id) || groupOf.has(id)) continue;
     const members = [id];
     const seen = new Set(members);
     // The members array is the BFS queue: i walks it while new neighbours are appended.
@@ -160,12 +161,19 @@ export function linkGroups(
           seen.add(n);
           members.push(n);
         }
-    const oldest = members.reduce((a, b) => (b < a ? b : a));
-    const hue = PALETTE[hash(oldest) % PALETTE.length];
-    for (const member of members) groups.set(member, { group, hue });
-    group++;
+    for (const member of members) groupOf.set(member, oldest.length);
+    oldest.push(members.reduce((a, b) => (b < a ? b : a)));
   }
-  return groups;
+  // Rank the groups by their oldest task: O(G log G) for G groups.
+  const byAge = oldest
+    .map((_, g) => g)
+    .sort((a, b) => (oldest[a] < oldest[b] ? -1 : 1));
+  const hue = new Map(
+    byAge.map((g, rank) => [g, PALETTE[rank % PALETTE.length]]),
+  );
+  return new Map(
+    [...groupOf].map(([id, group]) => [id, { group, hue: hue.get(group)! }]),
+  );
 }
 
 /**
