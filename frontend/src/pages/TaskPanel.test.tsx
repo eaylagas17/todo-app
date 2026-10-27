@@ -3,7 +3,7 @@ import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import { db, seedTasks, seedUser } from "../test/fakeApi.ts";
 import { formatDate } from "../tasks.ts";
-import { renderApp } from "../test/render.tsx";
+import { findPanel, renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
 let venue: Task;
@@ -60,11 +60,10 @@ it("keeps the same panel when switching tasks and focuses the new title", async 
   expect(within(panel()!).getByLabelText("Title")).toHaveFocus();
 });
 
-it("shows when the task was added", async () => {
+it("a link to /tasks?task=<id> opens the panel, saying when the task was added", async () => {
   renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
+  const details = await findPanel();
+  expect(within(details).getByLabelText("Title")).toHaveValue("Book the venue");
   expect(
     within(details).getByText(`Added ${formatDate(venue.created_at)}`),
   ).toBeInTheDocument();
@@ -76,25 +75,16 @@ it("opens the full page from the panel", async () => {
   expect(
     await screen.findByRole("heading", { name: "Task details" }),
   ).toBeInTheDocument();
+  expect(screen.getByLabelText("Title")).toHaveValue("Book the venue");
   expect(screen.getByTestId("location")).toHaveTextContent(
     `/tasks/${venue.id}`,
   );
 });
 
-it("a link to /tasks?task=<id> opens the panel", async () => {
-  renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
-  expect(within(details).getByLabelText("Title")).toHaveValue("Book the venue");
-});
-
 it("deleting from the panel closes it", async () => {
   vi.spyOn(window, "confirm").mockReturnValue(true);
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
+  const details = await findPanel();
   await user.click(
     within(details).getByRole("button", { name: "Delete task" }),
   );

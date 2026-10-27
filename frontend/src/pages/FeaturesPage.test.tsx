@@ -62,7 +62,7 @@ it("loads the example and goes to the list", async () => {
   });
 });
 
-it("the header shows Tasks and Features", async () => {
+it("the header shows Tasks, Features and Status", async () => {
   const { user } = renderApp("/tasks", { as: ada });
   const nav = await screen.findByRole("navigation", { name: "Main" });
   expect(within(nav).getByRole("link", { name: "Tasks" })).toHaveAttribute(
@@ -72,6 +72,10 @@ it("the header shows Tasks and Features", async () => {
   await user.click(within(nav).getByRole("link", { name: "Features" }));
   expect(
     await screen.findByRole("heading", { name: "Features", level: 1 }),
+  ).toBeInTheDocument();
+  await user.click(within(nav).getByRole("link", { name: "Status" }));
+  expect(
+    await screen.findByRole("heading", { name: "Status", level: 1 }),
   ).toBeInTheDocument();
 });
 

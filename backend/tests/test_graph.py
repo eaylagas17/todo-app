@@ -5,10 +5,8 @@ import pytest
 
 from app.graph import breaks_link, find_path, repair
 
-# The same table the frontend's repair is tested against (shared/repair-cases.json).
-CASES = json.loads(
-    (Path(__file__).parents[2] / "shared" / "repair-cases.json").read_text()
-)
+# The repair cases, as data: name, desired order, links, expected order.
+CASES = json.loads((Path(__file__).parent / "repair_cases.json").read_text())
 
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])

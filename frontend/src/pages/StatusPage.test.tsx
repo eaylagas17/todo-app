@@ -49,15 +49,6 @@ it("remembers which replicas answered", async () => {
   expect(within(seen).getByText("app-1")).toBeInTheDocument();
 });
 
-it("the header shows a Status tab", async () => {
-  const { user } = renderApp("/tasks", { as: ada });
-  const nav = await screen.findByRole("navigation", { name: "Main" });
-  await user.click(within(nav).getByRole("link", { name: "Status" }));
-  expect(
-    await screen.findByRole("heading", { name: "Status", level: 1 }),
-  ).toBeInTheDocument();
-});
-
 it("links to the interactive API docs, in a new tab", async () => {
   renderApp("/status", { as: ada });
   const docs = await screen.findByRole("link", {

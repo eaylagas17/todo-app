@@ -1,9 +1,9 @@
 import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { http } from "msw";
 import { beforeEach, expect, it } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
-import { db, seedTasks, seedUser, server } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import { db, fail, seedTasks, seedUser, server } from "../test/fakeApi.ts";
+import { findPanel, renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
 let venue: Task;
@@ -13,12 +13,9 @@ beforeEach(() => {
   [venue] = seedTasks(ada, ["Book the venue"]);
 });
 
-const panel = () =>
-  screen.findByRole("complementary", { name: "Task details" });
-
 it("adds, ticks and deletes subtasks in the panel", async () => {
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await panel();
+  const details = await findPanel();
   await user.type(
     within(details).getByLabelText("Add subtask"),
     "Shortlist{Enter}",
@@ -61,14 +58,11 @@ it("restores a subtask when ticking fails", async () => {
   ];
   server.use(
     http.patch("/api/tasks/:id/subtasks/:subtaskId", () =>
-      HttpResponse.json(
-        { error: { code: "INTERNAL_ERROR", message: "Server exploded" } },
-        { status: 500 },
-      ),
+      fail(500, "INTERNAL_ERROR", "Server exploded"),
     ),
   );
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await panel();
+  const details = await findPanel();
   await user.click(
     within(details).getByRole("checkbox", { name: "Shortlist" }),
   );

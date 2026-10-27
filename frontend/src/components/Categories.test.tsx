@@ -10,7 +10,7 @@ import {
   seedUser,
   server,
 } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import { findPanel, renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
 
@@ -33,19 +33,6 @@ const rows = () =>
     .getAllByRole("listitem")
     .map((row) => within(row).getAllByRole("link")[0].textContent);
 
-it("lists categories with counts in the sidebar", async () => {
-  const [venue, cake] = seedTasks(ada, ["Venue", "Cake", "Report"]);
-  file(venue, "Home");
-  file(cake, "Home");
-  renderApp("/tasks", { as: ada });
-  const nav = await sidebar();
-  expect(
-    await within(nav).findByRole("link", { name: "All 3" }),
-  ).toBeInTheDocument();
-  expect(within(nav).getByRole("link", { name: "Home 2" })).toBeInTheDocument();
-  expect(within(nav).getByRole("link", { name: "Work 0" })).toBeInTheDocument();
-});
-
 it("counts open tasks per category and completed tasks under Completed", async () => {
   const [venue, cake] = seedTasks(ada, ["Venue", "Cake", "Report"]);
   file(venue, "Home");
@@ -57,6 +44,7 @@ it("counts open tasks per category and completed tasks under Completed", async (
     await within(nav).findByRole("link", { name: "All 2" }),
   ).toBeInTheDocument();
   expect(within(nav).getByRole("link", { name: "Home 1" })).toBeInTheDocument();
+  expect(within(nav).getByRole("link", { name: "Work 0" })).toBeInTheDocument();
   expect(
     within(nav).getByRole("link", { name: "Completed 1" }),
   ).toHaveAttribute("href", "/tasks?list=completed");
@@ -75,7 +63,7 @@ it("filters the list by category", async () => {
   );
 });
 
-it("hides drag handles while a category is selected", async () => {
+it("swaps drag handles for a same-width blank while a category is selected", async () => {
   const [venue] = seedTasks(ada, ["Venue", "Report"]);
   file(venue, "Home");
   renderApp(`/tasks?category=${categoryId("Home")}`, { as: ada });
@@ -84,14 +72,6 @@ it("hides drag handles while a category is selected", async () => {
   expect(
     screen.queryByRole("button", { name: /^Reorder/ }),
   ).not.toBeInTheDocument();
-});
-
-it("keeps the handle's space while a category is selected, so rows don't shift", async () => {
-  const [venue] = seedTasks(ada, ["Venue", "Report"]);
-  file(venue, "Home");
-  renderApp(`/tasks?category=${categoryId("Home")}`, { as: ada });
-  await sidebar();
-  await waitFor(() => expect(rows()).toEqual(["VenueHome"]));
   const row = screen.getByRole("list", { name: "Tasks" }).querySelector("li")!;
   // The first thing in the row is an empty, hidden placeholder as wide as the handle.
   expect(row.firstElementChild).toHaveClass("handle-space");
@@ -154,9 +134,7 @@ it("falls back to All when the filtered category is deleted", async () => {
 it("picks a category in the panel", async () => {
   const [venue] = seedTasks(ada, ["Venue"]);
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const panel = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
+  const panel = await findPanel();
   await user.selectOptions(
     await within(panel).findByLabelText("Category"),
     "Work",
@@ -201,9 +179,7 @@ it("stays quiet when AI is unavailable", async () => {
 it("suggests again after a title edit when still uncategorised", async () => {
   const [venue] = seedTasks(ada, ["Venue"]);
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const panel = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
+  const panel = await findPanel();
   await user.type(within(panel).getByLabelText("Title"), " booking");
   await user.click(within(panel).getByRole("button", { name: "Save" }));
   await waitFor(() =>

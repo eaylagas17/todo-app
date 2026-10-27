@@ -2,18 +2,16 @@ import { screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import { findPanel, renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
 let venue: Task;
+let invites: Task;
 
 beforeEach(() => {
   ada = seedUser();
-  [venue] = seedTasks(ada, ["Book the venue", "Send invitations"]);
-  const invites = [...db.tasks.values()].find(
-    ({ task }) => task.title === "Send invitations",
-  )!.task;
-  invites.waits_for = [venue.id];
+  [venue, invites] = seedTasks(ada, ["Book the venue", "Send invitations"]);
+  db.tasks.get(invites.id)!.task.waits_for = [venue.id];
   db.tasks.get(venue.id)!.task.subtasks = [
     { id: "s1", title: "Shortlist", completed: false },
     { id: "s2", title: "Visit", completed: false },
@@ -40,9 +38,7 @@ it("opens the panel from a node", async () => {
   await user.click(
     await within(await graph()).findByRole("link", { name: /^Book the venue/ }),
   );
-  expect(
-    await screen.findByRole("complementary", { name: "Task details" }),
-  ).toBeInTheDocument();
+  expect(await findPanel()).toBeInTheDocument();
   expect(screen.getByTestId("location")).toHaveTextContent(`task=${venue.id}`);
   expect(screen.getByTestId("location")).toHaveTextContent("view=graph");
 });
@@ -92,10 +88,7 @@ it("keeps the list's steps when a filter hides a prerequisite", async () => {
     ({ ownerId, category }) =>
       ownerId === ada.user.id && category.name === "Work",
   )!.category.id;
-  const invites = [...db.tasks.values()].find(
-    ({ task }) => task.title === "Send invitations",
-  )!.task;
-  invites.category_id = work;
+  db.tasks.get(invites.id)!.task.category_id = work;
   renderApp(`/tasks?view=graph&category=${work}`, { as: ada });
   const area = await graph();
   expect(

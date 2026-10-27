@@ -1,14 +1,20 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
-import { beforeEach, expect, it, vi } from "vitest";
+import { screen, waitFor, within } from "@testing-library/react";
+import { beforeEach, expect, it } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import {
   complete,
   db,
-  requests,
+  savedOrder,
   seedTasks,
   seedUser,
 } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import {
+  advance,
+  findPanel,
+  renderApp,
+  row,
+  titlesIn,
+} from "../test/render.tsx";
 import { LEAVE_MS } from "../useLeaving.ts";
 import { LINGER_MS } from "../useLinger.tsx";
 
@@ -19,21 +25,8 @@ beforeEach(() => {
 });
 
 const list = (name: string) => screen.queryByRole("list", { name });
-// Titles in a list, leaving out rows that are closing (they're on their way out).
-const titlesIn = (name: string) =>
-  [...(list(name)?.querySelectorAll("li:not(.closing) .title") ?? [])].map(
-    (title) => title.textContent,
-  );
-const rowIn = (name: string, title: string) =>
-  [...list(name)!.querySelectorAll("li:not(.closing)")].find(
-    (row) => row.querySelector(".title")?.textContent === title,
-  )!;
 const checkbox = (title: string) =>
   screen.findByRole("checkbox", { name: `Complete ${title}` });
-const advance = (ms: number) =>
-  act(async () => {
-    await vi.advanceTimersByTimeAsync(ms);
-  });
 // Completed tasks, oldest first, a minute apart and before now.
 const completeInOrder = (tasks: Task[]) =>
   tasks.forEach((task, i) =>
@@ -44,12 +37,12 @@ it("a ticked task stays for five seconds with a draining bar, then moves to Rece
   seedTasks(ada, ["a", "b"]);
   const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
   await user.click(await checkbox("a"));
-  expect(rowIn("Tasks", "a").querySelector(".undo-bar")).not.toBeNull();
+  expect(row("a").querySelector(".undo-bar")).not.toBeNull();
   // The fake clock also runs on its own, so leave a second of slack either side.
   await advance(LINGER_MS - 1000);
-  expect(titlesIn("Tasks")).toEqual(["a", "b"]);
+  expect(titlesIn()).toEqual(["a", "b"]);
   await advance(1000 + LEAVE_MS);
-  expect(titlesIn("Tasks")).toEqual(["b"]);
+  expect(titlesIn()).toEqual(["b"]);
   expect(titlesIn("Recently completed")).toEqual(["a"]);
 });
 
@@ -60,7 +53,7 @@ it("unticking within five seconds keeps the task in the list", async () => {
   await advance(2000);
   await user.click(await checkbox("a"));
   await advance(LINGER_MS + LEAVE_MS + 1000);
-  expect(titlesIn("Tasks")).toEqual(["a"]);
+  expect(titlesIn()).toEqual(["a"]);
   expect(document.querySelector(".undo-bar")).toBeNull();
   expect(list("Recently completed")).toBeNull();
 });
@@ -72,25 +65,17 @@ it("each tick has its own five seconds", async () => {
   await advance(3000);
   await user.click(await checkbox("b"));
   await advance(2500);
-  expect(titlesIn("Tasks")).toEqual(["b", "c"]);
+  expect(titlesIn()).toEqual(["b", "c"]);
   await advance(3000);
-  expect(titlesIn("Tasks")).toEqual(["c"]);
+  expect(titlesIn()).toEqual(["c"]);
 });
 
-it("a task completed before a reload is under Recently completed", async () => {
-  const [, b] = seedTasks(ada, ["a", "b"]);
-  complete(b, new Date());
-  renderApp("/tasks", { as: ada });
-  await checkbox("a");
-  expect(titlesIn("Tasks")).toEqual(["a"]);
-  expect(titlesIn("Recently completed")).toEqual(["b"]);
-});
-
-it("Recently completed shows the five newest", async () => {
+it("Recently completed shows the five newest, loaded from the server", async () => {
   const tasks = seedTasks(ada, ["t1", "t2", "t3", "t4", "t5", "t6", "open"]);
   completeInOrder(tasks.slice(0, 6));
   renderApp("/tasks", { as: ada });
   await checkbox("open");
+  expect(titlesIn()).toEqual(["open"]);
   expect(titlesIn("Recently completed")).toEqual([
     "t6",
     "t5",
@@ -125,18 +110,26 @@ it("Recently completed is hidden when empty", async () => {
   ).toBeNull();
 });
 
-it("unticking from Recently completed puts the task back in its slot", async () => {
+it("unticking from Recently completed puts the task back in its slot, keeping focus", async () => {
   const [, b] = seedTasks(ada, ["a", "b", "c"]);
   complete(b, new Date());
   const { user } = renderApp("/tasks", { as: ada });
   await checkbox("a");
-  expect(titlesIn("Tasks")).toEqual(["a", "c"]);
-  await user.click(
-    within(list("Recently completed")!).getByRole("checkbox", {
-      name: "Complete b",
-    }),
+  expect(titlesIn()).toEqual(["a", "c"]);
+  within(list("Recently completed")!)
+    .getByRole("checkbox", { name: "Complete b" })
+    .focus();
+  await user.keyboard("[Space]");
+  expect(titlesIn()).toEqual(["a", "b", "c"]);
+  // The section stays while its last row closes, and focus follows b back into the list.
+  expect(
+    list("Recently completed")?.querySelector("li.closing"),
+  ).not.toBeNull();
+  await waitFor(() =>
+    expect(
+      within(list("Tasks")!).getByRole("checkbox", { name: "Complete b" }),
+    ).toHaveFocus(),
   );
-  expect(titlesIn("Tasks")).toEqual(["a", "b", "c"]);
 });
 
 it("a finished chain leaves together after the last tick", async () => {
@@ -150,18 +143,16 @@ it("a finished chain leaves together after the last tick", async () => {
   const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
   await checkbox("Send invitations");
   // Its chain isn't finished, so the done venue stays, greyed.
-  expect(titlesIn("Tasks")).toEqual([
+  expect(titlesIn()).toEqual([
     "Book the venue",
     "Send invitations",
     "Order the cake",
   ]);
   await user.click(await checkbox("Send invitations"));
   expect(document.querySelectorAll(".undo-bar")).toHaveLength(1);
-  expect(
-    rowIn("Tasks", "Send invitations").querySelector(".undo-bar"),
-  ).not.toBeNull();
+  expect(row("Send invitations").querySelector(".undo-bar")).not.toBeNull();
   await advance(LINGER_MS + LEAVE_MS);
-  expect(titlesIn("Tasks")).toEqual(["Order the cake"]);
+  expect(titlesIn()).toEqual(["Order the cake"]);
   expect(titlesIn("Recently completed")).toEqual([
     "Send invitations",
     "Book the venue",
@@ -179,7 +170,7 @@ it("deleting the last open task of a chain lets the done ones leave", async () =
   await user.click(
     await screen.findByRole("button", { name: "Delete Send invitations" }),
   );
-  expect(titlesIn("Tasks")).toEqual([]);
+  expect(titlesIn()).toEqual([]);
   expect(document.querySelector(".undo-bar")).toBeNull();
   expect(titlesIn("Recently completed")).toEqual(["Book the venue"]);
 });
@@ -190,7 +181,7 @@ it("deleting a task during its window just removes it", async () => {
   await user.click(await checkbox("a"));
   await user.click(screen.getByRole("button", { name: "Delete a" }));
   await advance(LINGER_MS + LEAVE_MS + 1000);
-  expect(titlesIn("Tasks")).toEqual(["b"]);
+  expect(titlesIn()).toEqual(["b"]);
   expect(list("Recently completed")).toBeNull();
   expect(screen.queryByRole("alert")).toBeNull();
 });
@@ -201,11 +192,7 @@ it("reorders with completed tasks hidden, keeping their slots", async () => {
   const { user } = renderApp("/tasks", { as: ada });
   (await screen.findByRole("button", { name: "Reorder c" })).focus();
   await user.keyboard("[Space][ArrowUp][ArrowUp][Space]");
-  expect(requests).toContainEqual({
-    method: "PUT",
-    path: "/api/task-order",
-    body: { ids: [c.id, h.id, a.id, b.id], previous: [a.id, h.id, b.id, c.id] },
-  });
+  await savedOrder([c, h, a, b], [a, h, b, c]);
 });
 
 it("moves focus to the task in Recently completed when its row closes", async () => {
@@ -227,13 +214,11 @@ it("the panel's Done box has the same five seconds", async () => {
     as: ada,
     fakeTimers: true,
   });
-  const panel = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
+  const panel = await findPanel();
   await user.click(within(panel).getByRole("checkbox", { name: "Done" }));
-  expect(titlesIn("Tasks")).toEqual(["a", "b"]);
+  expect(titlesIn()).toEqual(["a", "b"]);
   await advance(LINGER_MS + LEAVE_MS);
-  expect(titlesIn("Tasks")).toEqual(["b"]);
+  expect(titlesIn()).toEqual(["b"]);
   expect(titlesIn("Recently completed")).toEqual(["a"]);
 });
 
@@ -277,7 +262,7 @@ it("unticking on the Completed page sends the task back", async () => {
   await user.click(await checkbox("b"));
   expect(titlesIn("Completed")).toEqual([]);
   await user.click(screen.getByRole("link", { name: /^All/ }));
-  expect(titlesIn("Tasks")).toEqual(["a", "b"]);
+  expect(titlesIn()).toEqual(["a", "b"]);
 });
 
 it("searching filters the Completed page", async () => {
@@ -306,13 +291,13 @@ it("unticking a task in a finished chain brings the whole chain back", async () 
   completeInOrder([venue, invites]);
   const { user } = renderApp("/tasks", { as: ada });
   await checkbox("Order the cake");
-  expect(titlesIn("Tasks")).toEqual(["Order the cake"]);
+  expect(titlesIn()).toEqual(["Order the cake"]);
   await user.click(
     within(list("Recently completed")!).getByRole("checkbox", {
       name: "Complete Book the venue",
     }),
   );
-  expect(titlesIn("Tasks")).toEqual([
+  expect(titlesIn()).toEqual([
     "Book the venue",
     "Send invitations",
     "Order the cake",
@@ -328,16 +313,14 @@ it("linking to a completed task brings it back", async () => {
   const [venue, cake] = seedTasks(ada, ["Book the venue", "Order the cake"]);
   complete(venue, new Date());
   const { user } = renderApp(`/tasks?task=${cake.id}`, { as: ada });
-  const panel = await screen.findByRole("complementary", {
-    name: "Task details",
-  });
-  expect(titlesIn("Tasks")).toEqual(["Order the cake"]);
+  const panel = await findPanel();
+  expect(titlesIn()).toEqual(["Order the cake"]);
   await user.selectOptions(
     within(panel).getByLabelText("Add a task it waits for"),
     "Book the venue",
   );
   await waitFor(() =>
-    expect(titlesIn("Tasks")).toEqual(["Book the venue", "Order the cake"]),
+    expect(titlesIn()).toEqual(["Book the venue", "Order the cake"]),
   );
 });
 
@@ -349,26 +332,6 @@ it("choosing a category leaves the Completed page", async () => {
   expect(
     await screen.findByRole("heading", { name: "My tasks" }),
   ).toBeInTheDocument();
-});
-
-it("unticking the only Recently completed row closes it up and keeps focus", async () => {
-  const [, b] = seedTasks(ada, ["a", "b"]);
-  complete(b, new Date());
-  const { user } = renderApp("/tasks", { as: ada });
-  await checkbox("a");
-  within(list("Recently completed")!)
-    .getByRole("checkbox", { name: "Complete b" })
-    .focus();
-  await user.keyboard("[Space]");
-  // The section stays while its last row closes, and focus follows b back into the list.
-  expect(
-    list("Recently completed")?.querySelector("li.closing"),
-  ).not.toBeNull();
-  await waitFor(() =>
-    expect(
-      within(list("Tasks")!).getByRole("checkbox", { name: "Complete b" }),
-    ).toHaveFocus(),
-  );
 });
 
 it("deleting the last task closes its row up", async () => {

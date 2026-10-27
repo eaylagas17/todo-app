@@ -1,16 +1,18 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { http } from "msw";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import {
   db,
+  fail,
   gate,
   requests,
+  savedOrder,
   seedTasks,
   seedUser,
   server,
 } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import { findPanel, renderApp, row, titlesIn } from "../test/render.tsx";
 
 let ada: AuthResult;
 let venue: Task;
@@ -27,37 +29,17 @@ beforeEach(() => {
   db.tasks.get(invites.id)!.task.waits_for = [venue.id];
 });
 
-const row = (title: string) =>
-  screen
-    .getAllByRole("listitem")
-    .find((item) => item.querySelector(".title")?.textContent === title)!;
-const titles = () =>
-  [...document.querySelectorAll(".tasks .title")].map((t) => t.textContent);
-const panel = () =>
-  screen.findByRole("complementary", { name: "Task details" });
+const cakeDot = () =>
+  screen.findByRole("button", { name: "Link Order the cake to another task" });
+// jsdom has no hit-testing: say which element the pointer is over.
+const pointAt = (element: Element | null) =>
+  vi.spyOn(document, "elementFromPoint").mockReturnValue(element);
 
-// jsdom has no layout: row n sits at top = n × 50, 40px tall, so a drag can measure rows.
-function layOutRows() {
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
-    function (this: Element) {
-      const item = this.closest("li");
-      const index = item?.parentElement
-        ? [...item.parentElement.children].indexOf(item)
-        : 0;
-      return new DOMRect(0, index * 50, 300, 40);
-    },
-  );
-}
-
-async function dragDown(
-  user: ReturnType<typeof renderApp>["user"],
-  title: string,
-  steps: number,
-) {
-  (await screen.findByRole("button", { name: `Reorder ${title}` })).focus();
-  await user.keyboard("[Space]");
-  for (let i = 0; i < steps; i++) await user.keyboard("[ArrowDown]");
-  await user.keyboard("[Space]");
+async function moveVenueDown(user: ReturnType<typeof renderApp>["user"]) {
+  (
+    await screen.findByRole("button", { name: "Reorder Book the venue" })
+  ).focus();
+  await user.keyboard("[Space][ArrowDown][ArrowDown][Space]");
 }
 
 it("shows step numbers and Waits for", async () => {
@@ -76,7 +58,7 @@ it("shows step numbers and Waits for", async () => {
 
 it("links two tasks from the panel", async () => {
   const { user } = renderApp(`/tasks?task=${cake.id}`, { as: ada });
-  const details = await panel();
+  const details = await findPanel();
   await user.selectOptions(
     within(details).getByLabelText("Add a task it waits for"),
     "Book the venue",
@@ -97,15 +79,10 @@ it("refuses a loop and says why", async () => {
   const message =
     "That would make a loop: Book the venue → Send invitations → Book the venue";
   server.use(
-    http.post("/api/tasks/:id/links", () =>
-      HttpResponse.json(
-        { error: { code: "LINK_CYCLE", message } },
-        { status: 409 },
-      ),
-    ),
+    http.post("/api/tasks/:id/links", () => fail(409, "LINK_CYCLE", message)),
   );
   const { user } = renderApp(`/tasks?task=${venue.id}`, { as: ada });
-  const details = await panel();
+  const details = await findPanel();
   await user.selectOptions(
     within(details).getByLabelText("Add a task it waits for"),
     "Send invitations",
@@ -115,7 +92,7 @@ it("refuses a loop and says why", async () => {
 
 it("unlinks from the panel", async () => {
   const { user } = renderApp(`/tasks?task=${invites.id}`, { as: ada });
-  const details = await panel();
+  const details = await findPanel();
   await user.click(
     within(details).getByRole("button", {
       name: "Stop waiting for Book the venue",
@@ -135,19 +112,11 @@ it("unlinks from the panel", async () => {
 
 it("links by dragging the edge dot onto another task", async () => {
   renderApp("/tasks", { as: ada });
-  const dot = await screen.findByRole("button", {
-    name: "Link Order the cake to another task",
-  });
-  const target = row("Book the venue");
-  const original = document.elementFromPoint;
-  document.elementFromPoint = () => target;
-  try {
-    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-    fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-  } finally {
-    document.elementFromPoint = original;
-  }
+  const dot = await cakeDot();
+  pointAt(row("Book the venue"));
+  fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+  fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
   await waitFor(() =>
     expect(requests).toContainEqual({
       method: "POST",
@@ -160,83 +129,49 @@ it("links by dragging the edge dot onto another task", async () => {
 
 it("draws an arrow while linking and removes it on release anywhere", async () => {
   renderApp("/tasks", { as: ada });
-  const dot = await screen.findByRole("button", {
-    name: "Link Order the cake to another task",
-  });
-  const original = document.elementFromPoint;
-  document.elementFromPoint = () => null;
-  try {
-    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    expect(document.querySelector(".link-arrow")).not.toBeNull();
-    fireEvent.pointerMove(dot, { clientX: 40, clientY: 30, pointerId: 1 });
-    expect(
-      document.querySelector(".link-arrow .line")?.getAttribute("d"),
-    ).toMatch(/L 40 30$/);
-    fireEvent.pointerUp(dot, { clientX: 40, clientY: 30, pointerId: 1 });
-  } finally {
-    document.elementFromPoint = original;
-  }
+  const dot = await cakeDot();
+  fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  expect(document.querySelector(".link-arrow")).not.toBeNull();
+  fireEvent.pointerMove(dot, { clientX: 40, clientY: 30, pointerId: 1 });
+  expect(
+    document.querySelector(".link-arrow .line")?.getAttribute("d"),
+  ).toMatch(/L 40 30$/);
+  fireEvent.pointerUp(dot, { clientX: 40, clientY: 30, pointerId: 1 });
   expect(document.querySelector(".link-arrow")).toBeNull();
   expect(requests.filter((r) => r.method === "POST")).toEqual([]);
 });
 
 it("outlines the task under the pointer, never the one dragged from", async () => {
   renderApp("/tasks", { as: ada });
-  const dot = await screen.findByRole("button", {
-    name: "Link Order the cake to another task",
-  });
-  const original = document.elementFromPoint;
-  let under = row("Book the venue");
-  document.elementFromPoint = () => under;
-  try {
-    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-    expect(row("Book the venue")).toHaveClass("link-target");
-    under = row("Order the cake");
-    fireEvent.pointerMove(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    expect(document.querySelector(".link-target")).toBeNull();
-    under = row("Book the venue");
-    fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-    fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-  } finally {
-    document.elementFromPoint = original;
-  }
+  const dot = await cakeDot();
+  pointAt(row("Book the venue"));
+  fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+  expect(row("Book the venue")).toHaveClass("link-target");
+  pointAt(row("Order the cake"));
+  fireEvent.pointerMove(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  expect(document.querySelector(".link-target")).toBeNull();
+  pointAt(row("Book the venue"));
+  fireEvent.pointerMove(dot, { clientX: 10, clientY: 20, pointerId: 1 });
+  fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
   expect(document.querySelector(".link-target")).toBeNull();
 });
 
 it("draws the arrow in the graph too", async () => {
   renderApp("/tasks?view=graph", { as: ada });
-  const dot = await screen.findByRole("button", {
-    name: "Link Order the cake to another task",
-  });
-  const original = document.elementFromPoint;
-  document.elementFromPoint = () => null;
-  try {
-    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    // In the body, not inside the zoomed canvas: a transformed ancestor would break position: fixed.
-    expect(document.querySelector("body > .link-arrow")).not.toBeNull();
-    fireEvent.pointerUp(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-  } finally {
-    document.elementFromPoint = original;
-  }
+  const dot = await cakeDot();
+  fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  // In the body, not inside the zoomed canvas: a transformed ancestor would break position: fixed.
+  expect(document.querySelector("body > .link-arrow")).not.toBeNull();
+  fireEvent.pointerUp(dot, { clientX: 10, clientY: 110, pointerId: 1 });
   expect(document.querySelector(".link-arrow")).toBeNull();
 });
 
 it("moving a task below the task waiting for it pulls that task along", async () => {
-  layOutRows();
   const { user } = renderApp("/tasks", { as: ada });
-  await dragDown(user, "Book the venue", 2);
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: {
-        ids: [cake.id, venue.id, invites.id],
-        previous: [venue.id, invites.id, cake.id],
-      },
-    }),
-  );
-  expect(titles()).toEqual([
+  await moveVenueDown(user);
+  await savedOrder([cake, venue, invites], [venue, invites, cake]);
+  expect(titlesIn()).toEqual([
     "Order the cake",
     "Book the venue",
     "Send invitations",
@@ -244,27 +179,14 @@ it("moving a task below the task waiting for it pulls that task along", async ()
 });
 
 it("refreshes the list when the order was stale", async () => {
-  layOutRows();
-  server.use(
-    http.put("/api/task-order", () =>
-      HttpResponse.json(
-        {
-          error: {
-            code: "ORDER_STALE",
-            message: "Your list changed elsewhere. Refresh and try again.",
-          },
-        },
-        { status: 409 },
-      ),
-    ),
-  );
   const listReads = () =>
     requests.filter((r) => r.method === "GET" && r.path === "/api/tasks")
       .length;
   const { user } = renderApp("/tasks", { as: ada });
   await screen.findByRole("button", { name: "Reorder Order the cake" });
   const before = listReads();
-  await dragDown(user, "Book the venue", 2);
+  seedTasks(ada, ["Added elsewhere"]);
+  await moveVenueDown(user);
   expect(await screen.findByRole("alert")).toHaveTextContent(
     "Your list changed elsewhere",
   );
@@ -301,7 +223,6 @@ it("marks a waiting task ready when its prerequisite is ticked", async () => {
 
 it("applies changes instantly without View Transitions", async () => {
   expect("startViewTransition" in document).toBe(false);
-  layOutRows();
   const { wait, release } = gate();
   server.use(
     http.put("/api/task-order", async () => {
@@ -309,9 +230,9 @@ it("applies changes instantly without View Transitions", async () => {
     }),
   );
   const { user } = renderApp("/tasks", { as: ada });
-  await dragDown(user, "Book the venue", 2);
+  await moveVenueDown(user);
   await waitFor(() =>
-    expect(titles()).toEqual([
+    expect(titlesIn()).toEqual([
       "Order the cake",
       "Book the venue",
       "Send invitations",
@@ -330,19 +251,12 @@ it("applies changes instantly without View Transitions", async () => {
 
 it("a second finger turns a link drag into a pinch, not a link", async () => {
   renderApp("/tasks", { as: ada });
-  const dot = await screen.findByRole("button", {
-    name: "Link Order the cake to another task",
-  });
+  const dot = await cakeDot();
   const target = row("Book the venue");
-  const original = document.elementFromPoint;
-  document.elementFromPoint = () => target;
-  try {
-    fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
-    fireEvent.pointerDown(target, { clientX: 10, clientY: 20, pointerId: 2 });
-    fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
-  } finally {
-    document.elementFromPoint = original;
-  }
+  pointAt(target);
+  fireEvent.pointerDown(dot, { clientX: 10, clientY: 110, pointerId: 1 });
+  fireEvent.pointerDown(target, { clientX: 10, clientY: 20, pointerId: 2 });
+  fireEvent.pointerUp(dot, { clientX: 10, clientY: 20, pointerId: 1 });
   await new Promise((resolve) => setTimeout(resolve, 50));
   expect(requests.filter((r) => r.path.endsWith("/links"))).toEqual([]);
 });

@@ -1,5 +1,5 @@
 import { QueryClientProvider } from "@tanstack/react-query";
-import { render, renderHook } from "@testing-library/react";
+import { act, render, renderHook, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
@@ -61,3 +61,26 @@ export function renderHookWithClient<T>(hook: () => T) {
   });
   return { result, queryClient };
 }
+
+export const findPanel = () =>
+  screen.findByRole("complementary", { name: "Task details" });
+
+/** The row whose title is `title`, in any list. */
+export const row = (title: string) =>
+  screen
+    .getAllByRole("listitem")
+    .find((item) => item.querySelector(".title")?.textContent === title)!;
+
+/** Titles in a list, leaving out rows that are closing (they're on their way out). */
+export const titlesIn = (name = "Tasks") =>
+  [
+    ...(screen
+      .queryByRole("list", { name })
+      ?.querySelectorAll("li:not(.closing) .title") ?? []),
+  ].map((title) => title.textContent);
+
+/** Moves the fake clock (renderApp's fakeTimers) and lets React catch up. */
+export const advance = (ms: number) =>
+  act(async () => {
+    await vi.advanceTimersByTimeAsync(ms);
+  });
