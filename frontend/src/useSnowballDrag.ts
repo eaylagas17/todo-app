@@ -29,6 +29,8 @@ type Drag = {
   top: number;
   slot: number;
   preview: { order: string[]; block: string[] };
+  /** Released and saved: still drawn as previewed until the list holds the new order. */
+  dropped?: boolean;
 };
 
 type Options = {
@@ -55,6 +57,17 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
 
   // Leaving the page mid-drag drops the window listeners.
   useEffect(() => () => stopPointer.current(), []);
+
+  // After a drop, the preview stays drawn until the list arrives in its new order (the
+  // optimistic update writes it a moment later); otherwise the rows would snap back to where the
+  // drag began and glide forward again. Any change to the list ends it.
+  if (drag?.dropped && ids.join() !== drag.start.join()) setDrag(null);
+  // Should the list never change (an error before the update), stop drawing it after a second.
+  useEffect(() => {
+    if (!drag?.dropped) return;
+    const giveUp = setTimeout(() => setDrag(null), 1000);
+    return () => clearTimeout(giveUp);
+  }, [drag]);
 
   function show(next: Drag | null) {
     current.current = next;
@@ -125,8 +138,10 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
         ? `${titleOf(d.active)} was moved.${others.length ? ` ${others.join(", ")} moved with it.` : ""}`
         : `Moving ${titleOf(d.active)} was cancelled.`,
     );
-    show(null);
-    if (moved) onDrop(d.preview.order);
+    if (!moved) return show(null);
+    current.current = null;
+    setDrag({ ...d, dropped: true });
+    onDrop(d.preview.order);
   }
 
   function cancel(d: Drag) {
@@ -250,7 +265,7 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
     handleProps,
     announcement,
     instructionsId,
-    dragging: drag !== null,
+    dragging: drag !== null && !drag.dropped,
   };
 }
 
