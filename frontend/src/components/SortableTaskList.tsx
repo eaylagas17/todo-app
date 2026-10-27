@@ -28,6 +28,7 @@ export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
     return held.map((task) => live.get(task.id) ?? task);
   }, [held, tasks]);
   const rows = useLeaving(shown);
+  const live = new Set(tasks.map((task) => task.id));
   const ids = shown.map((task) => task.id);
   // Announcements name tasks by their text: an id means nothing to a screen reader user.
   const titles = new Map(shown.map((task) => [task.id, task.title]));
@@ -71,6 +72,7 @@ export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
             link={links.get(task.id)}
             phase={phase === "steady" ? undefined : phase}
             leavingSoon={leavingSoon.has(task.id)}
+            held={!live.has(task.id)}
             {...drag.rowProps(task.id)}
             handle={
               <button
