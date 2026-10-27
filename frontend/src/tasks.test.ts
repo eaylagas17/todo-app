@@ -22,6 +22,8 @@ const task = (id: string, position: number, title = id): Task => ({
   subtasks: [],
   category_id: null,
   waits_for: [],
+  created_at: "2026-10-27T09:00:00Z",
+  completed_at: null,
 });
 
 const waiting = (id: string, position: number, waitsFor: string[]): Task => ({

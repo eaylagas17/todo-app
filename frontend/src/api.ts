@@ -16,6 +16,9 @@ export type Task = {
   category_id: string | null;
   /** Ids of the tasks this one waits for. */
   waits_for: string[];
+  /** ISO 8601 times in UTC: when it was added, and when it was last ticked off (null while open). */
+  created_at: string;
+  completed_at: string | null;
 };
 
 export type AuthResult = { user: User; token: string };

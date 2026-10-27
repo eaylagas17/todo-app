@@ -23,6 +23,8 @@ const task = (title: string, waitsFor: string[] = [], subtasks = 0): Task => ({
   })),
   category_id: null,
   waits_for: waitsFor,
+  created_at: "2026-10-27T09:00:00Z",
+  completed_at: null,
 });
 
 const node = (nodes: GraphNode[], id: string) =>

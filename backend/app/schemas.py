@@ -1,5 +1,5 @@
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from email_validator import EmailNotValidError, validate_email
@@ -24,6 +24,15 @@ Body = Annotated[str, StringConstraints(max_length=2000)]
 CategoryName = Annotated[
     str, StringConstraints(strip_whitespace=True, min_length=1, max_length=40)
 ]
+
+
+def as_utc(value: datetime) -> datetime:
+    """SQLite drops the offset: a stored UTC time comes back naive. Every stored time is UTC."""
+    return value if value.tzinfo else value.replace(tzinfo=UTC)
+
+
+# A time on the wire always says it's UTC ("+00:00"), so a browser never reads it as local time.
+UtcDateTime = Annotated[datetime, AfterValidator(as_utc)]
 
 
 class Input(BaseModel):
@@ -88,6 +97,8 @@ class TaskOut(Output):
     subtasks: list[SubtaskOut]
     category_id: uuid.UUID | None
     waits_for: list[uuid.UUID]
+    created_at: UtcDateTime
+    completed_at: UtcDateTime | None
 
 
 class LinkIn(Input):
