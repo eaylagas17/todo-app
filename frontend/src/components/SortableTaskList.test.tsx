@@ -1,8 +1,10 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult } from "../api.ts";
 import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
+import { LEAVE_MS } from "../useLeaving.ts";
+import { LINGER_MS } from "../useLinger.tsx";
 
 let ada: AuthResult;
 
@@ -227,4 +229,36 @@ it("keeps the dropped rows where the drag showed them until the new order is in"
     expect(row("a").style.transform).toBe("translateY(100px)");
   await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
   await waitFor(() => expect(row("a").style.transform).toBe(""));
+});
+
+it("a row leaving the list mid-drag waits until the drop", async () => {
+  layOutRows();
+  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
+  await user.click(await screen.findByRole("checkbox", { name: "Complete c" }));
+  const grip = await pointerDrag("a", 20, 60);
+  expect(row("a").style.transform).toBe("translateY(40px)");
+  // c's 5-second window ends mid-drag: the rows the drag measured stay put, so nothing shifts
+  // under the pointer.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LINGER_MS + LEAVE_MS + 100);
+  });
+  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  expect(
+    screen.getByRole("list", { name: "Tasks" }).querySelector("li.closing"),
+  ).toBeNull();
+  expect(row("a").style.transform).toBe("translateY(40px)");
+  fireEvent.pointerUp(grip, { clientY: 60, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
+    }),
+  );
+  // After the drop, c leaves as it should.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LEAVE_MS + 100);
+  });
+  expect(taskLinks()).toEqual(["b", "a"]);
 });
