@@ -171,6 +171,9 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
       )
         return;
       event.preventDefault();
+      // The handle keeps the pointer, so a release outside the window still ends the drag (its
+      // events still bubble to the window listeners below). Optional: jsdom lacks it.
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       const pointerId = event.pointerId;
       const startY = event.clientY + window.scrollY;
       let clientY = event.clientY;
