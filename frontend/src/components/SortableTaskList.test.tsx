@@ -214,3 +214,17 @@ it("drags past a taller row by its middle", async () => {
     }),
   );
 });
+
+it("keeps the dropped rows where the drag showed them until the new order is in", async () => {
+  layOutRows();
+  seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("a", 20, 125);
+  fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
+  // The cache gets the new order a moment later (the optimistic update awaits): until then the
+  // rows stay drawn where the drag left them, instead of snapping back to where it started.
+  if (taskLinks().join() === "a,b,c")
+    expect(row("a").style.transform).toBe("translateY(100px)");
+  await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
+  await waitFor(() => expect(row("a").style.transform).toBe(""));
+});
