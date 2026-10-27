@@ -16,7 +16,7 @@ import { TaskLinks } from "./TaskLinks.tsx";
 
 type Props = {
   task: Task;
-  refreshError: Error | null;
+  refreshError?: Error | null;
   onDeleted: () => void;
 };
 

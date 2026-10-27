@@ -155,12 +155,7 @@ export function TaskListPage() {
             {open && (
               <>
                 {/* Keyed by task: switching tasks starts its editor afresh. */}
-                <TaskDetails
-                  key={open.id}
-                  task={open}
-                  refreshError={null}
-                  onDeleted={closePanel}
-                />
+                <TaskDetails key={open.id} task={open} onDeleted={closePanel} />
                 <Link to={`/tasks/${open.id}`} className="open-page">
                   Open as page
                 </Link>

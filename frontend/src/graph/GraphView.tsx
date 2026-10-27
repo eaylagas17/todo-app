@@ -268,17 +268,14 @@ function usePanAndZoom(
       pinchFrom = 0;
     };
 
-    box.addEventListener("wheel", wheel, { passive: false });
-    box.addEventListener("pointerdown", down);
-    box.addEventListener("pointermove", move);
-    box.addEventListener("pointerup", up);
-    box.addEventListener("pointercancel", up);
-    return () => {
-      box.removeEventListener("wheel", wheel);
-      box.removeEventListener("pointerdown", down);
-      box.removeEventListener("pointermove", move);
-      box.removeEventListener("pointerup", up);
-      box.removeEventListener("pointercancel", up);
-    };
+    // One controller removes every listener when the graph goes.
+    const listeners = new AbortController();
+    const { signal } = listeners;
+    box.addEventListener("wheel", wheel, { passive: false, signal });
+    box.addEventListener("pointerdown", down, { signal });
+    box.addEventListener("pointermove", move, { signal });
+    box.addEventListener("pointerup", up, { signal });
+    box.addEventListener("pointercancel", up, { signal });
+    return () => listeners.abort();
   }, [scroller, setZoom]);
 }

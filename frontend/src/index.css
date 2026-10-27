@@ -213,11 +213,23 @@ label {
 .email {
   margin-left: auto;
   min-width: 0;
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
+/* One line, cut with an ellipsis. */
+.email,
+.panel-head h2,
+.task .title,
+.task .sub,
+.task .category,
+.categories a span:first-child,
+.node-text .title,
+.node-text .sub,
+.child span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: var(--sub);
-  font-size: 0.875rem;
 }
 
 .page {
@@ -269,12 +281,8 @@ label {
   min-width: 0;
 }
 
-.actions > button {
+.signin button {
   flex: 1;
-}
-
-.details .actions > button {
-  flex: none;
 }
 
 /* The list: one white rounded card; dividers start where the text does, as on iOS. */
@@ -294,9 +302,7 @@ label {
   background: var(--card);
 }
 
-/* Completing (spec §5.7): a ticked row stays 5 seconds with a bar that drains from full to
-   empty, then closes up; the task opens at the top of Recently completed. The bar drains even
-   under reduced motion, because it's the timer, not decoration. */
+/* The 5-second undo bar drains even under reduced motion: it's the timer, not decoration. */
 .undo-bar {
   position: absolute;
   inset: auto 0 0;
@@ -311,10 +317,6 @@ label {
   to {
     transform: scaleX(0);
   }
-}
-
-.task.closing {
-  pointer-events: none;
 }
 
 @media (prefers-reduced-motion: no-preference) {
@@ -355,7 +357,7 @@ label {
   }
 }
 
-/* Completed sits under the categories, set apart by a hairline (spec §5.7). */
+/* Completed sits under the categories, set apart by a hairline. */
 .completed-entry {
   margin-top: 0.5rem;
   padding-top: 0.5rem;
@@ -377,33 +379,23 @@ label {
   color: var(--sub);
 }
 
-.task > a,
-.task > .dot,
-.task > .delete {
+.task > :is(a, .dot, .delete) {
   align-self: stretch;
+}
+
+.task:not(:last-child) > :is(a, .dot, .delete) {
   border-bottom: 1px solid var(--sep);
 }
 
-.task:last-child > a,
-.task:last-child > .dot,
-.task:last-child > .delete {
-  border-bottom: 0;
-}
-
-/* The whole text area opens the task; min-width: 0 lets long text shrink instead of overflowing. */
+/* The whole text area opens the task: title over the grey line, the category on the right,
+   never wider than 40% of the row. */
 .task > a {
   flex: 1;
   min-width: 0;
   padding: 0.6rem 0.25rem;
   color: var(--ink);
   text-decoration: none;
-}
-
-/* Text on the left (title over the grey line), the category name on the right. */
-.task > a {
   display: grid;
-  /* fit-content(40%): the category takes its own width, but never more than 40% of the row,
-     so a long category name can't push the title out (it ellipsizes instead). */
   grid-template-columns: minmax(0, 1fr) fit-content(40%);
   column-gap: 0.5rem;
   align-items: center;
@@ -413,23 +405,12 @@ label {
   grid-column: 2;
   grid-row: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
   color: var(--sub);
   font-size: 0.8125rem;
 }
 
 .task > a[aria-current] {
   background: var(--fill);
-}
-
-.task .title,
-.task .sub {
-  display: block;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .task .title,
@@ -467,7 +448,6 @@ label {
 
 /* The checkbox is 22px; its label makes a 44px tap target. */
 .tap {
-  display: grid;
   place-items: center;
   min-width: 44px;
   min-height: 44px;
@@ -486,7 +466,7 @@ label {
   border: 0;
 }
 
-/* Dragging (spec §5.2): the dragged row is lifted and follows the pointer; the rows travelling
+/* Dragging: the dragged row is lifted and follows the pointer; the rows travelling
    with it are lifted a little less. */
 .tasks.dragging {
   user-select: none;
@@ -495,7 +475,6 @@ label {
 
 .task.lifted,
 .task.swept {
-  position: relative;
   border-radius: 10px;
 }
 
@@ -509,9 +488,8 @@ label {
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.12);
 }
 
-/* The other rows make room on a soft spring, like app icons on an iPhone (the curve overshoots a
-   little); travelling rows follow quickly; the dragged row has no transition, so it stays under
-   the finger. */
+/* Other rows make room on a soft spring; travelling rows follow quickly; the dragged row has no
+   transition, so it stays under the finger. */
 @media (prefers-reduced-motion: no-preference) {
   .tasks.dragging .task {
     transition: transform 0.3s cubic-bezier(0.2, 0.9, 0.3, 1.15);
@@ -542,9 +520,7 @@ label {
   cursor: grab;
 }
 
-/* The task editor, in the panel, the sheet or the page. */
-/* Forms stack their fields with the same 1rem gap: the task editor, and the sign-in form (whose
-   inputs used to touch the next label and the buttons). */
+/* Forms stack their fields 1rem apart. */
 .details form,
 .signin {
   display: grid;
@@ -577,6 +553,7 @@ label {
   padding: 1rem;
   background: var(--card);
   border-left: 1px solid var(--sep);
+  --enter: translateX(100%);
 }
 
 .panel-head {
@@ -589,9 +566,6 @@ label {
 .panel-head h2 {
   flex: 1;
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 /* Phones: the same panel becomes a sheet from the bottom. Same DOM, only CSS changes. The
@@ -610,24 +584,12 @@ label {
     border-left: 0;
     border-radius: 16px 16px 0 0;
     box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25);
+    --enter: translateY(100%);
   }
 }
 
-@media (max-width: 699px) and (prefers-reduced-motion: no-preference) {
-  .panel {
-    animation: sheet-up 0.25s ease-out;
-  }
-}
-
-@keyframes sheet-up {
-  from {
-    transform: translateY(100%);
-  }
-}
-
-/* Wide screens: the panel slides in from the right when it opens (spec §5.6). It stays mounted
-   while open, so switching tasks doesn't replay it. */
-@media (min-width: 700px) and (prefers-reduced-motion: no-preference) {
+/* The panel slides in from the right; the sheet comes up from below. */
+@media (prefers-reduced-motion: no-preference) {
   .panel {
     animation: panel-in 0.25s ease-out;
   }
@@ -635,7 +597,7 @@ label {
 
 @keyframes panel-in {
   from {
-    transform: translateX(100%);
+    transform: var(--enter);
   }
 }
 
@@ -657,7 +619,8 @@ label {
   margin-bottom: 1.5rem;
 }
 
-.checklist h3 {
+.checklist h3,
+.links h3 {
   font-size: 1rem;
   margin: 0 0 0.25rem;
 }
@@ -668,15 +631,18 @@ label {
   font-weight: 400;
 }
 
-.checklist ul {
+.checklist ul,
+.categories ul {
   list-style: none;
   margin: 0 0 0.5rem;
   padding: 0;
 }
 
-.checklist li {
+.checklist li,
+.links li {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   border-bottom: 1px solid var(--sep);
 }
 
@@ -696,12 +662,6 @@ label {
   padding: 1rem;
 }
 
-.categories ul {
-  list-style: none;
-  margin: 0 0 0.5rem;
-  padding: 0;
-}
-
 .categories a {
   display: flex;
   justify-content: space-between;
@@ -716,9 +676,6 @@ label {
 
 .categories a span:first-child {
   min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .categories a[aria-current] {
@@ -728,7 +685,6 @@ label {
 }
 
 .categories .count {
-  color: inherit;
   opacity: 0.7;
 }
 
@@ -791,9 +747,7 @@ label {
   mask: url("./assets/chain.png") center / contain no-repeat;
 }
 
-/* Only the small ring shows. Square corners: in a row the dot's cell carries the row's separator
-   (border-bottom), and a button's rounded corners curved it into odd little edges. A focus ring
-   appears for keyboard focus only (:focus-visible, above). */
+/* Only the small ring shows. Square corners: in a row, the dot's cell carries the separator. */
 .dot {
   flex: none;
   width: 28px;
@@ -820,7 +774,7 @@ label {
   cursor: crosshair;
 }
 
-/* Linking (spec §5.4): the dot you drag from lights up, the task under the pointer is outlined,
+/* Linking: the dot you drag from lights up, the task under the pointer is outlined,
    and an arrow runs from the dot to the pointer. All three go when the pointer is released. */
 .dot[data-active]::after {
   border-color: var(--link);
@@ -828,14 +782,13 @@ label {
   box-shadow: 0 0 0 4px rgb(255 204 0 / 0.35);
 }
 
-.task.link-target {
-  outline: 2px solid var(--link);
-  outline-offset: -2px;
-}
-
-.node.link-target {
+.link-target {
   outline: 2px solid var(--link);
   outline-offset: 2px;
+}
+
+.task.link-target {
+  outline-offset: -2px;
 }
 
 .link-arrow {
@@ -873,26 +826,13 @@ label {
   }
 }
 
-.links h3 {
-  font-size: 1rem;
-  margin: 0 0 0.25rem;
-}
-
 .links ul {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.links li {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  border-bottom: 1px solid var(--sep);
-}
-
 .links select {
-  min-height: 44px;
   margin: 0.25rem 0 1rem;
 }
 
@@ -1112,16 +1052,8 @@ label {
   text-decoration: none;
 }
 
-.node-text .title,
-.node-text .sub {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .node-text .title {
   font-size: 0.875rem;
-  font-weight: 600;
 }
 
 .node-text .sub {
@@ -1158,7 +1090,6 @@ label {
 .child {
   position: absolute;
   display: flex;
-  flex-direction: row;
   align-items: center;
   gap: 0.4rem;
   font-size: 0.8125rem;
@@ -1173,12 +1104,6 @@ label {
 .child input:checked + span {
   text-decoration: line-through;
   color: var(--sub);
-}
-
-.child span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .credit {

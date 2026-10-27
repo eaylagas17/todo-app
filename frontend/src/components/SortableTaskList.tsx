@@ -72,7 +72,7 @@ export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
             key={task.id}
             task={task}
             link={links.get(task.id)}
-            phase={phase === "steady" ? undefined : phase}
+            phase={phase}
             leavingSoon={leavingSoon.has(task.id)}
             held={!live.has(task.id)}
             {...drag.rowProps(task.id)}

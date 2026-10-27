@@ -16,19 +16,16 @@ export function StatusPage() {
     queryFn: getStatus,
     refetchInterval: 5000,
   });
-  // The last 10 answers, newest first. Updated while rendering when a new answer arrives
-  // (React's pattern for state that follows other state), so the list never lags a render.
+  // The last 10 answers, newest first, updated while rendering when a new one arrives, so the
+  // list never lags a render.
   const [answers, setAnswers] = useState<{ replica: string; at: number }[]>([]);
-  const [lastAnswer, setLastAnswer] = useState(0);
-  if (status.data && status.dataUpdatedAt !== lastAnswer) {
-    setLastAnswer(status.dataUpdatedAt);
-    setAnswers((previous) =>
+  if (status.data && status.dataUpdatedAt !== answers[0]?.at)
+    setAnswers(
       [
         { replica: status.data.replica, at: status.dataUpdatedAt },
-        ...previous,
+        ...answers,
       ].slice(0, 10),
     );
-  }
   const data = status.data;
 
   return (
@@ -62,7 +59,7 @@ export function StatusPage() {
         Refresh now
       </button>
       <h2>Replicas that answered</h2>
-      <p className="how">
+      <p>
         In the cloud, several copies run behind a load balancer; this list shows
         which one answered each refresh.
       </p>
@@ -77,7 +74,7 @@ export function StatusPage() {
         ))}
       </ol>
       <h2>The API</h2>
-      <p className="how">
+      <p>
         Every endpoint, with its fields and error codes, generated from the code
         (OpenAPI). You can call them from the page.
       </p>
