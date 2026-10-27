@@ -45,6 +45,7 @@ def test_docs_list_the_errors_each_endpoint_returns(client):
         "PATCH /api/categories/{category_id}": {"400", "401", "404", "409"},
         "DELETE /api/categories/{category_id}": {"400", "401", "404"},
         "GET /api/health": {"503"},
+        "GET /api/status": set(),
     }
 
 
