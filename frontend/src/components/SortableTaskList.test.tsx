@@ -1,7 +1,7 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult } from "../api.ts";
-import { requests, seedTasks, seedUser } from "../test/fakeApi.ts";
+import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -14,20 +14,50 @@ const taskLinks = () =>
   within(screen.getByRole("list", { name: "Tasks" }))
     .getAllByRole("link")
     .map((link) => link.textContent);
+const row = (title: string) =>
+  screen
+    .getAllByRole("listitem")
+    .find((item) => item.querySelector(".title")?.textContent === title)!;
+const handle = (title: string) =>
+  screen.findByRole("button", { name: `Reorder ${title}` });
+const announced = () => screen.getByRole("status");
+const puts = () => requests.filter((r) => r.method === "PUT");
+
+// jsdom has no layout: rows sit one under the other from the list's top (0), 50px tall unless
+// `tall` says otherwise.
+function layOutRows(tall: Record<number, number> = {}) {
+  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
+    function (this: Element) {
+      const item = this.closest("li");
+      if (!item?.parentElement) return new DOMRect(0, 0, 300, 50);
+      const index = [...item.parentElement.children].indexOf(item);
+      const height = (i: number) => tall[i] ?? 50;
+      let top = 0;
+      for (let i = 0; i < index; i++) top += height(i);
+      return new DOMRect(0, top, 300, height(index));
+    },
+  );
+}
+
+// A pointer drag on a handle: press at `from`, then move through `to` (clientY values).
+async function pointerDrag(title: string, from: number, ...to: number[]) {
+  const grip = await handle(title);
+  fireEvent.pointerDown(grip, { clientY: from, pointerId: 1 });
+  for (const y of to) fireEvent.pointerMove(grip, { clientY: y, pointerId: 1 });
+  return grip;
+}
 
 it("gives each task a labelled drag handle", async () => {
   seedTasks(ada, ["a", "b"]);
   renderApp("/tasks", { as: ada });
-  expect(
-    await screen.findByRole("button", { name: "Reorder a" }),
-  ).toBeInTheDocument();
+  expect(await handle("a")).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "Reorder b" })).toBeInTheDocument();
 });
 
 it("hides drag handles while searching", async () => {
   seedTasks(ada, ["Buy milk", "Call mom"]);
   const { user } = renderApp("/tasks", { as: ada });
-  await screen.findByRole("button", { name: "Reorder Buy milk" });
+  await handle("Buy milk");
   await user.type(screen.getByLabelText("Search tasks"), "milk");
   expect(screen.getByRole("link", { name: "Buy milk" })).toBeInTheDocument();
   expect(
@@ -36,25 +66,16 @@ it("hides drag handles while searching", async () => {
 });
 
 it("moves a task with the keyboard", async () => {
-  // jsdom has no layout, so give each row a place: row n sits at top = n × 50, 40px tall.
-  vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
-    function (this: Element) {
-      const row = this.closest("li");
-      const index = row?.parentElement
-        ? [...row.parentElement.children].indexOf(row)
-        : 0;
-      const top = index * 50;
-      return new DOMRect(0, top, 300, 40);
-    },
-  );
+  layOutRows();
   const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
-  (await screen.findByRole("button", { name: "Reorder a" })).focus();
-  const announced = () => screen.getByRole("status");
+  (await handle("a")).focus();
   await user.keyboard("[Space]");
   await waitFor(() => expect(announced()).toHaveTextContent("Picked up a."));
   await user.keyboard("[ArrowDown]");
-  await waitFor(() => expect(announced()).toHaveTextContent("a is over b."));
+  await waitFor(() =>
+    expect(announced()).toHaveTextContent("a is at position 2 of 3."),
+  );
   await user.keyboard("[Space]");
   await waitFor(() => expect(announced()).toHaveTextContent("a was moved."));
   await waitFor(() => expect(taskLinks()).toEqual(["b", "a", "c"]));
@@ -69,18 +90,127 @@ it("moves a task with the keyboard", async () => {
 });
 
 it("says nothing moved when a task is dropped where it started", async () => {
+  layOutRows();
   seedTasks(ada, ["a", "b"]);
   const { user } = renderApp("/tasks", { as: ada });
-  (await screen.findByRole("button", { name: "Reorder a" })).focus();
+  (await handle("a")).focus();
+  await user.keyboard("[Space]");
+  await waitFor(() => expect(announced()).toHaveTextContent("Picked up a."));
   await user.keyboard("[Space]");
   await waitFor(() =>
-    expect(screen.getByRole("status")).toHaveTextContent("Picked up a."),
+    expect(announced()).toHaveTextContent("Moving a was cancelled."),
   );
-  await user.keyboard("[Space]");
+  expect(puts()).toEqual([]);
+});
+
+it("Escape cancels a keyboard drag", async () => {
+  layOutRows();
+  seedTasks(ada, ["a", "b", "c"]);
+  const { user } = renderApp("/tasks", { as: ada });
+  (await handle("a")).focus();
+  await user.keyboard("[Space][ArrowDown]");
   await waitFor(() =>
-    expect(screen.getByRole("status")).toHaveTextContent(
-      "Moving a was cancelled.",
-    ),
+    expect(announced()).toHaveTextContent("a is at position 2 of 3."),
   );
-  expect(requests.filter((r) => r.method === "PUT")).toEqual([]);
+  await user.keyboard("[Escape]");
+  await waitFor(() =>
+    expect(announced()).toHaveTextContent("Moving a was cancelled."),
+  );
+  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  expect(puts()).toEqual([]);
+});
+
+it("drags with the pointer and saves what it showed", async () => {
+  layOutRows();
+  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("a", 20, 125);
+  fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: [b.id, c.id, a.id], previous: [a.id, b.id, c.id] },
+    }),
+  );
+  await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
+});
+
+it("keeps the dragged row inside the list", async () => {
+  layOutRows();
+  seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("b", 70, -500);
+  expect(row("b").style.transform).toBe("translateY(-50px)");
+  fireEvent.pointerMove(grip, { clientY: 5000, pointerId: 1 });
+  expect(row("b").style.transform).toBe("translateY(50px)");
+});
+
+it("brings the tasks it reaches while dragging", async () => {
+  layOutRows();
+  const [venue, invites, cake] = seedTasks(ada, [
+    "Book the venue",
+    "Send invitations",
+    "Order the cake",
+  ]);
+  db.tasks.get(invites.id)!.task.waits_for = [venue.id];
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("Book the venue", 20, 140);
+  expect(row("Send invitations")).toHaveClass("swept");
+  expect(row("Book the venue")).toHaveClass("lifted");
+  expect(announced().textContent).toMatch(/Send invitations moves with it\.$/);
+  fireEvent.pointerUp(grip, { clientY: 140, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: {
+        ids: [cake.id, venue.id, invites.id],
+        previous: [venue.id, invites.id, cake.id],
+      },
+    }),
+  );
+  await waitFor(() =>
+    expect(taskLinks()).toEqual([
+      "Order the cake",
+      "Book the venue",
+      "Send invitations",
+    ]),
+  );
+});
+
+it("Escape cancels a pointer drag", async () => {
+  layOutRows();
+  seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("a", 20, 125);
+  expect(row("a").style.transform).not.toBe("");
+  fireEvent.keyDown(window, { key: "Escape" });
+  await waitFor(() =>
+    expect(
+      screen.getAllByRole("listitem").filter((item) => item.style.transform),
+    ).toEqual([]),
+  );
+  fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
+  expect(puts()).toEqual([]);
+});
+
+it("drags past a taller row by its middle", async () => {
+  layOutRows({ 1: 100 });
+  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  // a's top at 40: b's middle, in the list without a, is at 50, so nothing moves yet.
+  const grip = await pointerDrag("a", 20, 60);
+  expect(row("b").style.transform).toBe("translateY(0px)");
+  // a's top at 60: past b's middle, so b moves up into the first slot.
+  fireEvent.pointerMove(grip, { clientY: 80, pointerId: 1 });
+  expect(row("b").style.transform).toBe("translateY(-50px)");
+  fireEvent.pointerUp(grip, { clientY: 80, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
+    }),
+  );
 });
