@@ -18,6 +18,9 @@ RUN uv sync --frozen --no-dev
 
 # Stage 3: the image that runs: Python, the dependencies, the API and the built frontend.
 FROM python:3.14-slim
+# The commit this image was built from, shown on the Status page (docker build --build-arg).
+ARG GIT_SHA=dev
+ENV GIT_SHA=$GIT_SHA
 WORKDIR /app
 COPY --from=backend /app/.venv ./.venv
 COPY backend/app ./app
