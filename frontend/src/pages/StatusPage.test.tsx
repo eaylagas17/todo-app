@@ -60,3 +60,13 @@ it("the header shows a Status tab", async () => {
     await screen.findByRole("heading", { name: "Status", level: 1 }),
   ).toBeInTheDocument();
 });
+
+it("links to the interactive API docs, in a new tab", async () => {
+  renderApp("/status", { as: ada });
+  const docs = await screen.findByRole("link", {
+    name: "Open the interactive API docs",
+  });
+  expect(docs).toHaveAttribute("href", "/docs");
+  expect(docs).toHaveAttribute("target", "_blank");
+  expect(docs).toHaveAttribute("rel", "noreferrer");
+});
