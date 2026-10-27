@@ -14,6 +14,7 @@ afterEach(() => {
   clearAuth();
   localStorage.clear();
   vi.restoreAllMocks();
+  vi.useRealTimers();
   onlineManager.setOnline(true);
 });
 

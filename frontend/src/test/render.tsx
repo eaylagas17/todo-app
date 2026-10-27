@@ -3,6 +3,7 @@ import { render, renderHook } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter, useLocation, useNavigate } from "react-router";
+import { vi } from "vitest";
 import type { AuthResult } from "../api.ts";
 import App from "../App.tsx";
 import { saveAuth } from "../auth.ts";
@@ -25,11 +26,18 @@ function LocationProbe() {
 }
 
 // The whole app at one URL, as `as` if given, with a fresh cache that never retries,
-// so a failing request fails the test at once.
-export function renderApp(path: string, { as }: { as?: AuthResult } = {}) {
+// so a failing request fails the test at once. fakeTimers: the test moves the clock itself
+// (vi.advanceTimersByTime), for the 5-second undo window; it still runs on its own meanwhile.
+export function renderApp(
+  path: string,
+  { as, fakeTimers = false }: { as?: AuthResult; fakeTimers?: boolean } = {},
+) {
   if (as) saveAuth(as);
+  if (fakeTimers) vi.useFakeTimers({ shouldAdvanceTime: true });
   const queryClient = createQueryClient(0);
-  const user = userEvent.setup();
+  const user = userEvent.setup(
+    fakeTimers ? { advanceTimers: vi.advanceTimersByTime } : {},
+  );
   render(
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
