@@ -19,27 +19,41 @@ it("opens a task from the list", async () => {
   expect(
     await screen.findByRole("heading", { name: "Task details" }),
   ).toBeInTheDocument();
-  expect(screen.getByLabelText("Description")).toHaveValue("Buy milk");
+  expect(screen.getByLabelText("Title")).toHaveValue("Buy milk");
 });
 
 it("saves an edit", async () => {
   const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
-  await user.clear(await screen.findByLabelText("Description"));
-  await user.type(screen.getByLabelText("Description"), "Buy oat milk");
+  await user.clear(await screen.findByLabelText("Title"));
+  await user.type(screen.getByLabelText("Title"), "Buy oat milk");
   await user.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Saved");
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   expect(requests).toContainEqual({
     method: "PATCH",
     path: `/api/tasks/${milk.id}`,
-    body: { description: "Buy oat milk" },
+    body: { title: "Buy oat milk" },
   });
 });
 
-it("won't save a blank description", async () => {
+it("saves a title and a description", async () => {
   const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
-  await user.clear(await screen.findByLabelText("Description"));
-  await user.type(screen.getByLabelText("Description"), "   ");
+  await user.clear(await screen.findByLabelText("Title"));
+  await user.type(screen.getByLabelText("Title"), "New");
+  await user.type(screen.getByLabelText("Description"), "Notes");
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+  expect(requests).toContainEqual({
+    method: "PATCH",
+    path: `/api/tasks/${milk.id}`,
+    body: { title: "New", description: "Notes" },
+  });
+});
+
+it("won't save a blank title", async () => {
+  const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
+  await user.clear(await screen.findByLabelText("Title"));
+  await user.type(screen.getByLabelText("Title"), "   ");
   expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
 });
 
@@ -75,7 +89,7 @@ it("keeps the task when deletion is cancelled", async () => {
 
 it("keeps an unsaved edit when a refresh fails", async () => {
   const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
-  await user.type(await screen.findByLabelText("Description"), " today");
+  await user.type(await screen.findByLabelText("Title"), " today");
   server.use(
     http.get("/api/tasks/:id", () =>
       HttpResponse.json(
@@ -86,7 +100,7 @@ it("keeps an unsaved edit when a refresh fails", async () => {
   );
   await user.click(screen.getByRole("checkbox", { name: "Done" }));
   expect(await screen.findByRole("alert")).toHaveTextContent("Server exploded");
-  expect(screen.getByLabelText("Description")).toHaveValue("Buy milk today");
+  expect(screen.getByLabelText("Title")).toHaveValue("Buy milk today");
 });
 
 it("shows not found for a task that doesn't exist", async () => {
@@ -123,7 +137,7 @@ it("shows not found for a malformed task id", async () => {
 
 it("shows not found if the task was deleted elsewhere", async () => {
   const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
-  await user.type(await screen.findByLabelText("Description"), " today");
+  await user.type(await screen.findByLabelText("Title"), " today");
   db.tasks.delete(milk.id);
   await user.click(screen.getByRole("button", { name: "Save" }));
   expect(
