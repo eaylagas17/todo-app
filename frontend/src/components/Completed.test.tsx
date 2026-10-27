@@ -45,9 +45,10 @@ it("a ticked task stays for five seconds with a draining bar, then moves to Rece
   const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
   await user.click(await checkbox("a"));
   expect(rowIn("Tasks", "a").querySelector(".undo-bar")).not.toBeNull();
-  await advance(LINGER_MS - 100);
+  // The fake clock also runs on its own, so leave a second of slack either side.
+  await advance(LINGER_MS - 1000);
   expect(titlesIn("Tasks")).toEqual(["a", "b"]);
-  await advance(200 + LEAVE_MS);
+  await advance(1000 + LEAVE_MS);
   expect(titlesIn("Tasks")).toEqual(["b"]);
   expect(titlesIn("Recently completed")).toEqual(["a"]);
 });
