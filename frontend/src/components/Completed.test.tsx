@@ -350,3 +350,33 @@ it("choosing a category leaves the Completed page", async () => {
     await screen.findByRole("heading", { name: "My tasks" }),
   ).toBeInTheDocument();
 });
+
+it("unticking the only Recently completed row closes it up and keeps focus", async () => {
+  const [, b] = seedTasks(ada, ["a", "b"]);
+  complete(b, new Date());
+  const { user } = renderApp("/tasks", { as: ada });
+  await checkbox("a");
+  within(list("Recently completed")!)
+    .getByRole("checkbox", { name: "Complete b" })
+    .focus();
+  await user.keyboard("[Space]");
+  // The section stays while its last row closes, and focus follows b back into the list.
+  expect(
+    list("Recently completed")?.querySelector("li.closing"),
+  ).not.toBeNull();
+  await waitFor(() =>
+    expect(
+      within(list("Tasks")!).getByRole("checkbox", { name: "Complete b" }),
+    ).toHaveFocus(),
+  );
+});
+
+it("deleting the last task closes its row up", async () => {
+  seedTasks(ada, ["a"]);
+  const { user } = renderApp("/tasks", { as: ada });
+  await user.click(await screen.findByRole("button", { name: "Delete a" }));
+  expect(document.querySelector("li.closing .title")?.textContent).toBe("a");
+  expect(
+    screen.getByText("No tasks yet. Add your first one above."),
+  ).toBeInTheDocument();
+});
