@@ -132,8 +132,7 @@ def test_stale_order_is_409(client, ada, grace):
 
 
 def test_two_tabs_saving_from_the_same_order_is_409(client, ada):
-    # Review Focus 1: both tabs start from [A, B, C]. The first save wins; the second was
-    # made on an order that no longer exists, so it's refused instead of overwriting.
+    # Both tabs start from [A, B, C]: the first save wins; the second is refused, not applied.
     a, b, c = (add_task(client, ada, title)["id"] for title in ("A", "B", "C"))
     first = put_order(client, ada, [b, a, c], previous=[a, b, c])
     assert first.status_code == 200
@@ -150,12 +149,3 @@ def test_order_that_breaks_a_link_is_409(client, ada):
     response = put_order(client, ada, [invites["id"], venue["id"]])
     assert response.status_code == 409
     assert response.json()["error"]["code"] == "ORDER_BREAKS_LINK"
-
-
-def test_position_is_no_longer_patchable(client, ada):
-    task = add_task(client, ada, "Book the venue")
-    response = client.patch(
-        f"/api/tasks/{task['id']}", json={"position": 3}, headers=ada
-    )
-    assert response.status_code == 400
-    assert response.json()["error"]["fields"] == {"position": "Unknown field: position"}

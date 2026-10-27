@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.main import create_app
 from app.models import Task, User
 from app.seed import seed_demo
-from tests.helpers import sign_in
+from tests.helpers import bearer, sign_in
 
 
 def test_health_reports_ok(client):
@@ -67,6 +67,6 @@ def test_demo_user_can_sign_in(client, db):
     seed_demo(db)
     response = sign_in(client, "demo@example.com", "demo-password")
     assert response.status_code == 201
-    demo = {"Authorization": f"Bearer {response.json()['token']}"}
+    demo = bearer(response.json()["token"])
     titles = [task["title"] for task in client.get("/api/tasks", headers=demo).json()]
     assert titles[:3] == ["Book the venue", "Confirm guest list", "Send invitations"]

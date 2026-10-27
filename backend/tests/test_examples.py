@@ -1,15 +1,8 @@
 from app.graph import breaks_link
+from app.seed import EXAMPLE
 from tests.helpers import add_task
 
-EXAMPLE_TITLES = [
-    "Book the venue",
-    "Confirm guest list",
-    "Send invitations",
-    "Seating plan",
-    "Renew passport",
-    "Book flights",
-    "Order the cake",
-]
+EXAMPLE_TITLES = [title for title, *_ in EXAMPLE]
 
 
 def load_example(client, headers):

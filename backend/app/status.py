@@ -1,4 +1,4 @@
-"""The live state of this copy of the server, for the Status page (spec §14).
+"""The live state of this copy of the server, for the Status page.
 
 /api/health gates traffic (load balancers and probes read it); this page only reports, so it
 answers 200 even when the database is down, and says so.
@@ -31,7 +31,6 @@ def current_status(db: Session) -> dict:
         "started_at": STARTED_AT,
         "uptime_seconds": round((utcnow() - STARTED_AT).total_seconds()),
         "database": database,
-        # Whether AI suggestions can work here at all (a key is set): tells a reviewer running it
-        # without a key why none appear. No calls, spend or limits: operator numbers.
+        # Tells a reviewer running it without a key why no suggestions appear.
         "ai_enabled": bool(os.environ.get("TYPESAFE_API_KEY")),
     }

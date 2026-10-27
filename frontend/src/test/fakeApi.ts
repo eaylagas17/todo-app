@@ -301,9 +301,7 @@ export const server = setupServer(
       desired.splice(desired.indexOf(body.depends_on_id) + 1, 0, task.id);
       let repaired: string[];
       try {
-        repaired = breaksLink(order, linked)
-          ? repair(desired, linked, "down")
-          : order;
+        repaired = breaksLink(order, linked) ? repair(desired, linked) : order;
       } catch {
         return fail(409, "LINK_CYCLE", "That would make a loop");
       }

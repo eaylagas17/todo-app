@@ -11,10 +11,10 @@ from sqlalchemy import func, select, update
 from app.ai import get_http_client
 from app.db import utcnow
 from app.main import app
-from app.models import AiCall, Task
+from app.models import AiCall, Task, User
 from tests.helpers import add_task
 
-# A real answer from Jev (one call made while building this, spec §9); tests change only
+# A real answer from Jev, saved once; tests change only
 # the choice and the confidence, so the fake can't drift from the real format.
 REAL = json.loads((Path(__file__).parent / "jev_choice_response.json").read_text())
 
@@ -167,11 +167,9 @@ def test_per_day_limit(client, ada, jev, db):
 
 
 def test_monthly_budget(client, ada, grace, jev, db):
-    add_task(client, grace, "Buy stamps")
-    user_id = db.scalar(select(Task.owner_id).where(Task.title == "Buy stamps"))
-    db.add(
-        AiCall(user_id=user_id, input_tokens=24_000_000)
-    )  # $1.008 at $0.042 per million
+    grace_id = db.scalar(select(User.id).where(User.email == "grace@example.com"))
+    # $1.008 at $0.042 per million tokens: over the $1 budget.
+    db.add(AiCall(user_id=grace_id, input_tokens=24_000_000))
     db.commit()
     response = suggest(client, ada, add_task(client, ada, "Post the letter"))
     assert response.status_code == 503

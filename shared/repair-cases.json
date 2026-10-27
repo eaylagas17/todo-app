@@ -1,8 +1,6 @@
 [
-  {"name": "no links: the desired order stands", "desired": ["A","B","C"], "waits_for": {}, "direction": "down", "expected": ["A","B","C"]},
-  {"name": "dragging a prerequisite down pushes its dependent", "desired": ["X","A","Y","B"], "waits_for": {"A": ["B"]}, "direction": "down", "expected": ["X","Y","B","A"]},
-  {"name": "dragging a dependent up pulls its prerequisite", "desired": ["A","X","B","Y"], "waits_for": {"A": ["B"]}, "direction": "up", "expected": ["B","A","X","Y"]},
-  {"name": "pushes a whole chain", "desired": ["B","C","X","A"], "waits_for": {"B": ["A"], "C": ["B"]}, "direction": "down", "expected": ["X","A","B","C"]},
-  {"name": "pulls every prerequisite", "desired": ["S","X","A","G"], "waits_for": {"S": ["A","G"]}, "direction": "up", "expected": ["A","G","S","X"]},
-  {"name": "leaves unrelated tasks where they were dropped", "desired": ["X","B","Y","A","Z"], "waits_for": {"A": ["B"]}, "direction": "down", "expected": ["X","B","Y","A","Z"]}
+  {"name": "no links: the desired order stands", "desired": ["A","B","C"], "waits_for": {}, "expected": ["A","B","C"]},
+  {"name": "a task above what it waits for is pushed below it", "desired": ["X","A","Y","B"], "waits_for": {"A": ["B"]}, "expected": ["X","Y","B","A"]},
+  {"name": "pushes a whole chain", "desired": ["B","C","X","A"], "waits_for": {"B": ["A"], "C": ["B"]}, "expected": ["X","A","B","C"]},
+  {"name": "leaves unrelated tasks where they are", "desired": ["X","B","Y","A","Z"], "waits_for": {"A": ["B"]}, "expected": ["X","B","Y","A","Z"]}
 ]

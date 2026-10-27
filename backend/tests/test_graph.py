@@ -13,15 +13,12 @@ CASES = json.loads(
 
 @pytest.mark.parametrize("case", CASES, ids=[case["name"] for case in CASES])
 def test_repair(case):
-    assert (
-        repair(case["desired"], case["waits_for"], case["direction"])
-        == case["expected"]
-    )
+    assert repair(case["desired"], case["waits_for"]) == case["expected"]
 
 
 def test_repair_refuses_a_loop():
     with pytest.raises(ValueError):
-        repair(["A", "B"], {"A": ["B"], "B": ["A"]}, "down")
+        repair(["A", "B"], {"A": ["B"], "B": ["A"]})
 
 
 def test_find_path_follows_waits_for():

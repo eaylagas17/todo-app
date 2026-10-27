@@ -40,12 +40,8 @@ def _calls_since(db: Session, user: User, since) -> int:
 
 def _spent_this_month(db: Session) -> float:
     start = utcnow().replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-    tokens = db.scalar(
-        select(func.coalesce(func.sum(AiCall.input_tokens), 0)).where(
-            AiCall.at >= start
-        )
-    )
-    return tokens * USD_PER_TOKEN
+    tokens = db.scalar(select(func.sum(AiCall.input_tokens)).where(AiCall.at >= start))
+    return (tokens or 0) * USD_PER_TOKEN
 
 
 def suggest_category(db: Session, user: User, task: Task, http: httpx.Client) -> Task:
@@ -62,10 +58,8 @@ def suggest_category(db: Session, user: User, task: Task, http: httpx.Client) ->
         _calls_since(db, user, now - timedelta(minutes=1)) >= PER_MINUTE
         or _calls_since(db, user, now - timedelta(days=1)) >= PER_DAY
     ):
-        db.rollback()
         raise AiRateLimited
     if _spent_this_month(db) >= monthly_budget():
-        db.rollback()
         raise AiBudgetReached
     # Recorded before the call, so a failed attempt still counts; the commit ends the lock.
     call = AiCall(user_id=user.id)

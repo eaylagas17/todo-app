@@ -249,7 +249,7 @@ def rename_category(
     responses=errors(400, 401, 404),
 )
 def delete_category(category: OwnedCategory, db: DbSession) -> None:
-    crud.delete_category(db, category)
+    crud.delete(db, category)  # its tasks become uncategorised (ON DELETE SET NULL)
 
 
 @router.get("/health", responses=errors(503))
