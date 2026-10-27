@@ -40,7 +40,7 @@ export const allOf =
 
 export type Direction = "down" | "up";
 
-const waitsForMap = (tasks: readonly Task[]) =>
+export const waitsForMap = (tasks: readonly Task[]): Record<string, string[]> =>
   Object.fromEntries(tasks.map((task) => [task.id, task.waits_for]));
 
 /**
@@ -90,22 +90,72 @@ export function repair(
 }
 
 /**
- * A drop means what it means in dnd-kit: the dragged task takes the slot of the task it was
- * dropped on. Returns the whole new order, repaired around the links, or null for no change.
+ * The snowball (spec §5.2): the dragged task lands at `slot`, its index in the result. Going
+ * down, a task that waits for anything in the moving block joins it when the block reaches it,
+ * and travels right behind; going up is the mirror image, with prerequisites joining on top.
+ * Everything else keeps its relative order and flows around the block. If the block can't fit
+ * (a wall), the dragged task stops short of `slot`, like a pushed stack.
+ *
+ * One walk over the other tasks, filling the `room` slots before the block. O(V + E) time, O(V)
+ * space. Every link holds: the original order kept them all, relative order is preserved, and the
+ * block only overtakes tasks that aren't linked to it.
  */
-export function moveWithLinks(
-  tasks: readonly Task[],
+export function sweep(
+  order: readonly string[],
+  waitsFor: Record<string, readonly string[]>,
   activeId: string,
-  overId: string,
-): string[] | null {
-  const from = tasks.findIndex((t) => t.id === activeId);
-  const to = tasks.findIndex((t) => t.id === overId);
-  if (from === -1 || to === -1 || from === to) return null;
-  const desired = tasks
-    .map((t) => t.id)
-    .toSpliced(from, 1)
-    .toSpliced(to, 0, activeId);
-  return repair(desired, waitsForMap(tasks), to > from ? "down" : "up");
+  slot: number,
+): { order: string[]; block: string[] } {
+  const from = order.indexOf(activeId);
+  if (slot === from) return { order: [...order], block: [activeId] };
+  const down = slot > from;
+  const others = order.filter((id) => id !== activeId);
+  if (!down) others.reverse();
+  const room = down ? slot : order.length - 1 - slot;
+  const inBlock = new Set([activeId]);
+  // Going up, a task joins if something in the block waits for it: look that up in O(1).
+  const neededByBlock = new Set(waitsFor[activeId] ?? []);
+  const joins = (id: string) =>
+    down
+      ? (waitsFor[id] ?? []).some((p) => inBlock.has(p))
+      : neededByBlock.has(id);
+  const before: string[] = [];
+  const members: string[] = [];
+  const after: string[] = [];
+  for (const id of others) {
+    if (before.length >= room) after.push(id);
+    else if (joins(id)) {
+      inBlock.add(id);
+      members.push(id);
+      for (const p of waitsFor[id] ?? []) neededByBlock.add(p);
+    } else before.push(id);
+  }
+  if (down)
+    return {
+      order: [...before, activeId, ...members, ...after],
+      block: [activeId, ...members],
+    };
+  // Walked bottom-up, so each list is reversed back into list order.
+  const block = [...members.reverse(), activeId];
+  return {
+    order: [...after.reverse(), ...block, ...before.reverse()],
+    block,
+  };
+}
+
+/**
+ * Which slot a dragged row is over: how many of the other rows (their heights, in list order,
+ * the dragged row left out) have their middle above the dragged row's top. O(V).
+ */
+export function slotAt(top: number, heights: readonly number[]): number {
+  let slot = 0;
+  let cumulative = 0;
+  for (const h of heights) {
+    if (top <= cumulative + h / 2) break;
+    cumulative += h;
+    slot++;
+  }
+  return slot;
 }
 
 // Soft hues (degrees on the colour wheel), one per group.

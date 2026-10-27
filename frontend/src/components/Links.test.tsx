@@ -36,7 +36,7 @@ const titles = () =>
 const panel = () =>
   screen.findByRole("complementary", { name: "Task details" });
 
-// jsdom has no layout: row n sits at top = n × 50, 40px tall, so dnd-kit can move by keyboard.
+// jsdom has no layout: row n sits at top = n × 50, 40px tall, so a drag can measure rows.
 function layOutRows() {
   vi.spyOn(Element.prototype, "getBoundingClientRect").mockImplementation(
     function (this: Element) {

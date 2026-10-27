@@ -8,7 +8,6 @@ import {
   isWaiting,
   linkGroups,
   matchesSearch,
-  moveWithLinks,
   repair,
   slotAt,
   steps,
@@ -62,33 +61,6 @@ describe("repair", () => {
   );
   it("refuses a loop", () =>
     expect(() => repair(["A", "B"], { A: ["B"], B: ["A"] }, "down")).toThrow());
-});
-
-describe("moveWithLinks", () => {
-  it("pulls a prerequisite up with a dependent dragged above it", () => {
-    const list = [
-      task("X", 1),
-      task("B", 2),
-      task("Y", 3),
-      waiting("A", 4, ["B"]),
-    ];
-    expect(moveWithLinks(list, "A", "X")).toEqual(["B", "A", "X", "Y"]);
-  });
-  it("pushes a dependent down with a prerequisite dragged below it", () => {
-    const list = [
-      task("B", 1),
-      task("X", 2),
-      waiting("A", 3, ["B"]),
-      task("Y", 4),
-    ];
-    expect(moveWithLinks(list, "B", "Y")).toEqual(["X", "Y", "B", "A"]);
-  });
-  it("is the plain move without links", () =>
-    expect(
-      moveWithLinks([task("a", 1), task("b", 2), task("c", 3)], "c", "a"),
-    ).toEqual(["c", "a", "b"]));
-  it("ignores a drop in place", () =>
-    expect(moveWithLinks([task("a", 1), task("b", 2)], "b", "b")).toBeNull());
 });
 
 describe("sweep", () => {

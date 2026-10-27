@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult } from "../api.ts";
 import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
@@ -11,9 +11,9 @@ beforeEach(() => {
 });
 
 const taskLinks = () =>
-  within(screen.getByRole("list", { name: "Tasks" }))
-    .getAllByRole("link")
-    .map((link) => link.textContent);
+  [
+    ...screen.getByRole("list", { name: "Tasks" }).querySelectorAll(".title"),
+  ].map((title) => title.textContent);
 const row = (title: string) =>
   screen
     .getAllByRole("listitem")
