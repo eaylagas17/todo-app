@@ -18,6 +18,7 @@ import {
   linkTasks,
   listCategories,
   listTasks,
+  loadExample,
   NetworkError,
   renameCategory,
   saveOrder,
@@ -365,6 +366,20 @@ export function useDeleteCategory() {
           t.category_id === id ? { ...t, category_id: null } : t,
         ),
       );
+    },
+  });
+}
+
+export function useLoadExample() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: () => loadExample(),
+    onMutate: startSession,
+    onSuccess: (tasks, _nothing, started) => {
+      if (!stillCurrent(started)) return;
+      queryClient.setQueryData(TASKS_KEY, tasks);
+      // The example may have added the Wedding and Travel categories.
+      return queryClient.invalidateQueries({ queryKey: CATEGORIES_KEY });
     },
   });
 }

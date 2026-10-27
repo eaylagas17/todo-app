@@ -60,9 +60,13 @@ def test_seed_demo_is_idempotent(db):
     seed_demo(db)
     seed_demo(db)
     assert db.scalar(select(func.count()).select_from(User)) == 1
-    assert db.scalar(select(func.count()).select_from(Task)) == 4
+    assert db.scalar(select(func.count()).select_from(Task)) == 7
 
 
 def test_demo_user_can_sign_in(client, db):
     seed_demo(db)
-    assert sign_in(client, "demo@example.com", "demo-password").status_code == 201
+    response = sign_in(client, "demo@example.com", "demo-password")
+    assert response.status_code == 201
+    demo = {"Authorization": f"Bearer {response.json()['token']}"}
+    titles = [task["title"] for task in client.get("/api/tasks", headers=demo).json()]
+    assert titles[:3] == ["Book the venue", "Confirm guest list", "Send invitations"]

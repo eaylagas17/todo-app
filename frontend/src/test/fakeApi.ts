@@ -330,6 +330,29 @@ export const server = setupServer(
     renumber(tasks, ids);
     return HttpResponse.json(listOf(ownerId));
   }),
+  // A smaller copy of seed.EXAMPLE: the titles, in order, and the links between them.
+  http.post("/api/examples", ({ request }) => {
+    record(request);
+    const ownerId = signedInUser(request);
+    if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
+    const added = new Map<string, Task>();
+    for (const [title, waitsFor] of [
+      ["Book the venue", []],
+      ["Confirm guest list", []],
+      ["Send invitations", ["Book the venue", "Confirm guest list"]],
+      ["Seating plan", ["Send invitations"]],
+      ["Renew passport", []],
+      ["Book flights", ["Renew passport"]],
+      ["Order the cake", []],
+    ] as const) {
+      const task = addTask(ownerId, title);
+      db.tasks.get(task.id)!.task.waits_for = waitsFor.map(
+        (name) => added.get(name)!.id,
+      );
+      added.set(title, task);
+    }
+    return HttpResponse.json(listOf(ownerId), { status: 201 });
+  }),
   // Without a TYPESAFE_API_KEY the real server answers this; tests that want a category say so.
   http.post("/api/tasks/:id/category-suggestion", ({ request }) => {
     record(request);

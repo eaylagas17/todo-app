@@ -1,7 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { Link, Navigate, Outlet, Route, Routes } from "react-router";
+import { Link, Navigate, NavLink, Outlet, Route, Routes } from "react-router";
 import { logout } from "./api.ts";
 import { clearAuth, useAuth } from "./auth.ts";
+import { FeaturesPage } from "./pages/FeaturesPage.tsx";
 import { SignInPage } from "./pages/SignInPage.tsx";
 import { TaskDetailPage } from "./pages/TaskDetailPage.tsx";
 import { TaskListPage } from "./pages/TaskListPage.tsx";
@@ -24,6 +25,10 @@ function RequireAuth() {
         <Link to="/tasks" className="brand">
           To-Do
         </Link>
+        <nav aria-label="Main" className="tabs">
+          <NavLink to="/tasks">Tasks</NavLink>
+          <NavLink to="/features">Features</NavLink>
+        </nav>
         <span className="email">{auth.user.email}</span>
         <button type="button" className="secondary" onClick={signOut}>
           Sign out
@@ -41,6 +46,7 @@ function App() {
       <Route element={<RequireAuth />}>
         <Route path="/tasks" element={<TaskListPage />} />
         <Route path="/tasks/:id" element={<TaskDetailPage />} />
+        <Route path="/features" element={<FeaturesPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/tasks" replace />} />
     </Routes>

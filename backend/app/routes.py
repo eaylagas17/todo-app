@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app import ai, crud
+from app import ai, crud, seed
 from app.db import DbSession
 from app.errors import ServiceUnavailable
 from app.models import Category, Subtask, Task, User, UserSession
@@ -193,6 +193,17 @@ def suggest_category(
     http: Annotated[httpx.Client, Depends(ai.get_http_client)],
 ) -> Task:
     return ai.suggest_category(db, user, task, http)
+
+
+@router.post(
+    "/examples",
+    status_code=status.HTTP_201_CREATED,
+    response_model=list[TaskOut],
+    responses=errors(401),
+)
+def load_example(user: SignedInUser, db: DbSession) -> list[Task]:
+    seed.add_example(db, user)
+    return crud.list_tasks(db, user)
 
 
 @router.get("/categories", response_model=list[CategoryOut], responses=errors(401))

@@ -681,6 +681,65 @@ label {
   }
 }
 
+/* The header's tabs: the current page is marked by NavLink's aria-current. */
+.tabs {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 0.6rem;
+  border-radius: 10px;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.tabs a[aria-current="page"] {
+  background: var(--fill);
+  font-weight: 600;
+}
+
+/* Phones: the email gives its room to the tabs; Sign out stays. */
+@media (max-width: 499px) {
+  .email {
+    display: none;
+  }
+
+  .tabs {
+    margin-left: auto;
+  }
+}
+
+/* The features: cards in a grid that wraps from one column to three. */
+.features {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(15rem, 1fr));
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+}
+
+.feature {
+  padding: 1rem;
+  background: var(--card);
+  border-radius: var(--radius);
+}
+
+.feature h2 {
+  margin-bottom: 0.4rem;
+}
+
+.feature p {
+  margin: 0 0 0.5rem;
+}
+
+.feature .how {
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
 /* List | Graph: a two-button switch; the pressed one is filled. */
 .views {
   display: inline-flex;
