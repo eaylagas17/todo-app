@@ -1,5 +1,8 @@
 import { type FormEvent, useState } from "react";
+import { Link, useSearchParams } from "react-router";
+import { SidePanel } from "../components/SidePanel.tsx";
 import { SortableTaskList } from "../components/SortableTaskList.tsx";
+import { TaskDetails } from "../components/TaskDetails.tsx";
 import { TaskItem } from "../components/TaskItem.tsx";
 import { useCreateTask, useTaskChangeError, useTasks } from "../queries.ts";
 import { matchesSearch } from "../tasks.ts";
@@ -10,6 +13,22 @@ export function TaskListPage() {
   const changeError = useTaskChangeError();
   const [title, setTitle] = useState("");
   const [query, setQuery] = useState("");
+  const [params, setParams] = useSearchParams();
+  const openId = params.get("task");
+  const open = tasks.data?.find((task) => task.id === openId);
+
+  // Replace, not push: after closing, the back button goes to the page before, not to the
+  // panel again. Other params (a filter, a view) are kept.
+  function closePanel() {
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current);
+        next.delete("task");
+        return next;
+      },
+      { replace: true },
+    );
+  }
 
   function add(event: FormEvent) {
     event.preventDefault();
@@ -17,10 +36,10 @@ export function TaskListPage() {
   }
 
   return (
-    <main className="container">
-      <h1>My tasks</h1>
-      <form onSubmit={add}>
-        <fieldset role="group">
+    <div className={openId ? "layout split" : "layout"}>
+      <main className="page">
+        <h1>My tasks</h1>
+        <form className="add" onSubmit={add}>
           <input
             aria-label="New task"
             placeholder="New task"
@@ -32,20 +51,42 @@ export function TaskListPage() {
           <button type="submit" disabled={!title.trim() || create.isPending}>
             Add task
           </button>
-        </fieldset>
-      </form>
-      {create.error && <p role="alert">{create.error.message}</p>}
-      <input
-        type="search"
-        aria-label="Search tasks"
-        placeholder="Search tasks"
-        value={query}
-        onChange={(event) => setQuery(event.target.value)}
-      />
-      {changeError && <p role="alert">{changeError.message}</p>}
-      {tasks.isError && tasks.data && <p role="alert">{tasks.error.message}</p>}
-      <TaskList query={query} tasks={tasks} />
-    </main>
+        </form>
+        {create.error && <p role="alert">{create.error.message}</p>}
+        <input
+          type="search"
+          aria-label="Search tasks"
+          placeholder="Search tasks"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {changeError && <p role="alert">{changeError.message}</p>}
+        {tasks.isError && tasks.data && (
+          <p role="alert">{tasks.error.message}</p>
+        )}
+        <TaskList query={query} tasks={tasks} />
+      </main>
+      {openId && tasks.data && (
+        <SidePanel
+          key={openId}
+          title={open?.title ?? "Task not found"}
+          onClose={closePanel}
+        >
+          {open && (
+            <>
+              <TaskDetails
+                task={open}
+                refreshError={null}
+                onDeleted={closePanel}
+              />
+              <Link to={`/tasks/${open.id}`} className="open-page">
+                Open as page
+              </Link>
+            </>
+          )}
+        </SidePanel>
+      )}
+    </div>
   );
 }
 

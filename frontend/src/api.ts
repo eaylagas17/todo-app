@@ -31,6 +31,9 @@ export class ApiError extends Error {
   }
 }
 
+export const hasStatus = (error: unknown, ...statuses: number[]) =>
+  error instanceof ApiError && statuses.includes(error.status);
+
 /** There was no answer: offline, DNS failure, refused connection, or a timeout. */
 export class NetworkError extends Error {
   readonly timedOut: boolean;

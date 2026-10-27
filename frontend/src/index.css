@@ -1,113 +1,413 @@
-/* App styles on top of Pico, which styles the plain HTML elements. */
+/* Our own small stylesheet, in the spirit of iPhone Notes: tokens first, then elements, then
+   the screens. Every colour comes from a token, so dark mode only redefines the tokens. */
 
-/* Pico spaces header and main only as direct children of <body>; ours sit inside #root. */
-#root > header,
-#root > main {
-  padding-block: var(--pico-block-spacing-vertical);
+:root {
+  color-scheme: light dark;
+  --bg: #f2f2f7; /* iOS grouped background */
+  --card: #ffffff;
+  --ink: #1c1c1e;
+  --sub: #6c6c70; /* secondary text: 5.2:1 on white */
+  --sep: rgb(60 60 67 / 0.2); /* hairline dividers */
+  --fill: rgb(118 118 128 / 0.12); /* search field */
+  --tint: #ffcc00; /* Notes yellow: icons and fills only, never text on white */
+  --on-tint: #1c1c1e;
+  --link: #7a5d00; /* dark amber for link text: 5.9:1 on white */
+  --danger: #c4001a;
+  --focus: #0a6cff;
+  --radius: 12px;
+  --header: 3.5rem;
+  font:
+    17px/1.4 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #000000;
+    --card: #1c1c1e;
+    --ink: #f2f2f7;
+    --sub: #98989f;
+    --sep: rgb(84 84 88 / 0.65);
+    --fill: rgb(118 118 128 / 0.24);
+    --tint: #ffd60a;
+    --link: #ffd60a; /* yellow text is fine on near-black: 13:1 */
+    --danger: #ff6961;
+    --focus: #4c9bff;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+h1 {
+  font-size: 2rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  margin: 0.25rem 0 1rem;
+}
+
+h2 {
+  font-size: 1.15rem;
+  margin: 0;
+}
+
+a {
+  color: var(--link);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: var(--ink);
+}
+
+input:not([type="checkbox"]),
+textarea {
+  width: 100%;
+  min-height: 44px;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--sep);
+  border-radius: 10px;
+  background: var(--card);
+}
+
+textarea {
+  resize: vertical;
+}
+
+input[type="search"] {
+  border: 0;
+  background: var(--fill);
+  margin-bottom: 1rem;
+}
+
+:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+/* Buttons: a yellow fill with dark text (the one place yellow carries text), or quieter kinds. */
+button {
+  min-height: 44px;
+  padding: 0 1rem;
+  border: 0;
+  border-radius: 10px;
+  background: var(--tint);
+  color: var(--on-tint);
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+button.secondary {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--sep);
+}
+
+button.plain,
+button.danger,
+button.delete {
+  background: transparent;
+  font-weight: 400;
+}
+
+button.plain {
+  color: var(--link);
+}
+
+button.danger {
+  color: var(--danger);
+  padding: 0;
+}
+
+/* The round completion circle: a real checkbox, restyled, so keyboard and screen readers work. */
+input[type="checkbox"] {
+  appearance: none;
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0;
+  border: 2px solid var(--sub);
+  border-radius: 50%;
+  cursor: pointer;
+}
+
+input[type="checkbox"]:checked {
+  border-color: var(--tint);
+  background: var(--tint)
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.5 8.5l3 3 6-7' fill='none' stroke='%231c1c1e' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")
+    center / 14px no-repeat;
+}
+
+label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.875rem;
+  color: var(--sub);
 }
 
 [role="alert"] {
-  color: var(--pico-del-color);
+  color: var(--danger);
+}
+
+[role="status"] {
+  color: var(--sub);
+}
+
+/* Layout: a sticky header, then the page; with a task open, the panel sits beside the list. */
+.top {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  height: var(--header);
+  padding: 0 1rem;
+  background: var(--card);
+  border-bottom: 1px solid var(--sep);
+}
+
+.brand {
+  font-weight: 800;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+/* A long email shrinks to an ellipsis instead of pushing the header wider than a phone. */
+.email {
+  margin-left: auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
+.page {
+  width: 100%;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 1rem;
 }
 
 .narrow {
   max-width: 30rem;
 }
 
-nav a,
-nav button,
-[role="group"] button {
-  white-space: nowrap;
+.layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
-/* Pico's compact nav buttons are 38px tall; 44px is the minimum comfortable tap target. */
-nav button {
-  min-height: 44px;
+@media (min-width: 700px) {
+  .layout.split {
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 26rem);
+  }
 }
 
-/* A long email shrinks to an ellipsis instead of pushing the header wider than a phone. */
-nav ul:last-child {
-  min-width: 0;
-}
-
-.email {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.tasks {
-  padding: 0;
-}
-
-.task {
-  list-style: none;
+.add,
+.actions {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  border-bottom: 1px solid var(--pico-muted-border-color);
+  margin-bottom: 0.75rem;
 }
 
-/* The checkbox itself is small; its label gives it a 44px tap target. */
-.tap {
-  display: grid;
-  place-items: center;
-  min-width: 44px;
-  min-height: 44px;
-  margin: 0;
-}
-
-.tap input {
-  margin: 0;
-}
-
-/* The whole row width opens the task; padding makes it a 44px tap target. */
-.task a {
+.add input {
   flex: 1;
   min-width: 0;
-  padding-block: 0.625rem;
-  overflow-wrap: anywhere;
+}
+
+.actions > button {
+  flex: 1;
+}
+
+.details .actions > button {
+  flex: none;
+}
+
+/* The list: one white rounded card; dividers start where the text does, as on iOS. */
+.tasks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: var(--card);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.task {
+  display: flex;
+  align-items: center;
+  background: var(--card);
+}
+
+.task > a,
+.task > .delete {
+  align-self: stretch;
+  border-bottom: 1px solid var(--sep);
+}
+
+.task:last-child > a,
+.task:last-child > .delete {
+  border-bottom: 0;
+}
+
+/* The whole text area opens the task; min-width: 0 lets long text shrink instead of overflowing. */
+.task > a {
+  flex: 1;
+  min-width: 0;
+  padding: 0.6rem 0.25rem;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.task > a[aria-current] {
+  background: var(--fill);
 }
 
 .task .title,
 .task .sub {
   display: block;
-}
-
-/* The description's first line, grey, cut with an ellipsis so a long one stays one line. */
-.task .sub {
-  color: var(--pico-muted-color);
-  font-size: 0.875em;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.task button {
-  margin: 0.25rem 0;
+.task .title {
+  font-weight: 600;
 }
 
-.done {
+/* The description's first line, grey and smaller: the detail is there if you want it. */
+.task .sub {
+  color: var(--sub);
+  font-size: 0.875em;
+}
+
+.done .title {
   text-decoration: line-through;
-  color: var(--pico-muted-color);
+  color: var(--sub);
+}
+
+.task > .delete {
+  border-radius: 0;
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
+/* The checkbox is 22px; its label makes a 44px tap target. */
+.tap {
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
 }
 
 /* The handle is the only place a drag can start, so a finger on the rest of the row still scrolls. */
 .handle {
-  min-width: 44px;
-  min-height: 44px;
+  min-width: 36px;
   padding: 0;
-  margin: 0;
+  background: transparent;
+  color: var(--sub);
   touch-action: none;
   cursor: grab;
 }
 
-/* Detail screen: the back link and the Done checkbox's label are full 44px tap targets. */
-.back,
+/* The task editor, in the panel, the sheet or the page. */
+.details form {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
 .check {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  min-height: 44px;
+  font-size: 1rem;
+  color: var(--ink);
+}
+
+.back,
+.open-page {
   display: inline-flex;
   align-items: center;
-  gap: 0.5rem;
   min-height: 44px;
+}
+
+.panel {
+  position: sticky;
+  top: var(--header);
+  align-self: start;
+  height: calc(100vh - var(--header));
+  overflow-y: auto;
+  padding: 1rem;
+  background: var(--card);
+  border-left: 1px solid var(--sep);
+}
+
+.panel-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.panel-head h2 {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Phones: the same panel becomes a sheet from the bottom. Same DOM, only CSS changes. */
+@media (max-width: 699px) {
+  .panel {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 3;
+    height: auto;
+    max-height: 85vh;
+    border-left: 0;
+    border-radius: 16px 16px 0 0;
+    box-shadow: 0 -8px 30px rgb(0 0 0 / 0.25);
+  }
+}
+
+@media (max-width: 699px) and (prefers-reduced-motion: no-preference) {
+  .panel {
+    animation: sheet-up 0.25s ease-out;
+  }
+}
+
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
 }
