@@ -1,4 +1,4 @@
-import { act, screen, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
 import {
@@ -241,4 +241,110 @@ it("says All done. when every task is completed", async () => {
   renderApp("/tasks", { as: ada });
   expect(await screen.findByText("All done.")).toBeInTheDocument();
   expect(titlesIn("Recently completed")).toEqual(["b", "a"]);
+});
+
+it("lists every completed task newest first on the Completed page", async () => {
+  const [venue, invites, cake, milk] = seedTasks(ada, [
+    "Book the venue",
+    "Send invitations",
+    "Order the cake",
+    "Buy milk",
+  ]);
+  db.tasks.get(invites.id)!.task.waits_for = [venue.id];
+  // The venue's chain is unfinished, so it's still greyed in the list; it's listed here too.
+  completeInOrder([venue, cake, milk]);
+  renderApp("/tasks?list=completed", { as: ada });
+  expect(
+    await screen.findByRole("heading", { name: "Completed" }),
+  ).toBeInTheDocument();
+  expect(titlesIn("Completed")).toEqual([
+    "Buy milk",
+    "Order the cake",
+    "Book the venue",
+  ]);
+  expect(screen.queryByLabelText("New task")).toBeNull();
+  expect(screen.queryByRole("group", { name: "View" })).toBeNull();
+});
+
+it("unticking on the Completed page sends the task back", async () => {
+  const [, b] = seedTasks(ada, ["a", "b"]);
+  complete(b, new Date());
+  const { user } = renderApp("/tasks?list=completed", { as: ada });
+  await checkbox("b");
+  expect(titlesIn("Completed")).toEqual(["b"]);
+  await user.click(await checkbox("b"));
+  expect(titlesIn("Completed")).toEqual([]);
+  await user.click(screen.getByRole("link", { name: /^All/ }));
+  expect(titlesIn("Tasks")).toEqual(["a", "b"]);
+});
+
+it("searching filters the Completed page", async () => {
+  completeInOrder(seedTasks(ada, ["Buy milk", "Pay rent"]));
+  const { user } = renderApp("/tasks?list=completed", { as: ada });
+  await checkbox("Buy milk");
+  await user.type(screen.getByLabelText("Search tasks"), "milk");
+  expect(titlesIn("Completed")).toEqual(["Buy milk"]);
+});
+
+it("shows an empty state when nothing is completed", async () => {
+  seedTasks(ada, ["a"]);
+  renderApp("/tasks?list=completed", { as: ada });
+  expect(
+    await screen.findByText("No completed tasks yet."),
+  ).toBeInTheDocument();
+});
+
+it("unticking a task in a finished chain brings the whole chain back", async () => {
+  const [venue, invites] = seedTasks(ada, [
+    "Book the venue",
+    "Send invitations",
+    "Order the cake",
+  ]);
+  db.tasks.get(invites.id)!.task.waits_for = [venue.id];
+  completeInOrder([venue, invites]);
+  const { user } = renderApp("/tasks", { as: ada });
+  await checkbox("Order the cake");
+  expect(titlesIn("Tasks")).toEqual(["Order the cake"]);
+  await user.click(
+    within(list("Recently completed")!).getByRole("checkbox", {
+      name: "Complete Book the venue",
+    }),
+  );
+  expect(titlesIn("Tasks")).toEqual([
+    "Book the venue",
+    "Send invitations",
+    "Order the cake",
+  ]);
+  expect(
+    within(list("Tasks")!).getByRole("checkbox", {
+      name: "Complete Send invitations",
+    }),
+  ).toBeChecked();
+});
+
+it("linking to a completed task brings it back", async () => {
+  const [venue, cake] = seedTasks(ada, ["Book the venue", "Order the cake"]);
+  complete(venue, new Date());
+  const { user } = renderApp(`/tasks?task=${cake.id}`, { as: ada });
+  const panel = await screen.findByRole("complementary", {
+    name: "Task details",
+  });
+  expect(titlesIn("Tasks")).toEqual(["Order the cake"]);
+  await user.selectOptions(
+    within(panel).getByLabelText("Add a task it waits for"),
+    "Book the venue",
+  );
+  await waitFor(() =>
+    expect(titlesIn("Tasks")).toEqual(["Book the venue", "Order the cake"]),
+  );
+});
+
+it("choosing a category leaves the Completed page", async () => {
+  seedTasks(ada, ["a"]);
+  const { user } = renderApp("/tasks?list=completed", { as: ada });
+  await user.click(await screen.findByRole("link", { name: /^Work/ }));
+  expect(screen.getByTestId("location")).not.toHaveTextContent("list=");
+  expect(
+    await screen.findByRole("heading", { name: "My tasks" }),
+  ).toBeInTheDocument();
 });
