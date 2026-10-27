@@ -1,6 +1,14 @@
 import { type FormEvent, useState } from "react";
 import { hasStatus, type Task } from "../api.ts";
-import { useDeleteTask, useToggleTask, useUpdateTask } from "../queries.ts";
+import {
+  useAddSubtask,
+  useDeleteSubtask,
+  useDeleteTask,
+  useToggleSubtask,
+  useToggleTask,
+  useUpdateTask,
+} from "../queries.ts";
+import { subtaskProgress } from "../tasks.ts";
 
 type Props = {
   task: Task;
@@ -87,9 +95,82 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
           {update.isSuccess && !changed && <p role="status">Saved</p>}
         </div>
       </form>
+      <Checklist task={task} />
       <button type="button" className="danger" onClick={deleteTask}>
         Delete task
       </button>
     </div>
+  );
+}
+
+function Checklist({ task }: { task: Task }) {
+  const [title, setTitle] = useState("");
+  const add = useAddSubtask();
+  const tick = useToggleSubtask();
+  const remove = useDeleteSubtask();
+  const error = add.error ?? tick.error ?? remove.error;
+  const progress = subtaskProgress(task);
+
+  function submit(event: FormEvent) {
+    event.preventDefault();
+    add.mutate(
+      { taskId: task.id, title: title.trim() },
+      { onSuccess: () => setTitle("") },
+    );
+  }
+
+  return (
+    <section className="checklist" aria-label="Subtasks">
+      <h3>Subtasks {progress && <span className="count">{progress}</span>}</h3>
+      <ul>
+        {task.subtasks.map((subtask) => (
+          <li key={subtask.id}>
+            <label className="check">
+              <input
+                type="checkbox"
+                // The list cache already holds the change; on the full page, which reads its
+                // own copy of the task, the pending value shows until the refetch lands.
+                checked={
+                  tick.isPending && tick.variables.subtaskId === subtask.id
+                    ? tick.variables.completed
+                    : subtask.completed
+                }
+                onChange={(event) =>
+                  tick.mutate({
+                    taskId: task.id,
+                    subtaskId: subtask.id,
+                    completed: event.target.checked,
+                  })
+                }
+              />
+              {subtask.title}
+            </label>
+            <button
+              type="button"
+              className="delete"
+              aria-label={`Delete ${subtask.title}`}
+              onClick={() =>
+                remove.mutate({ taskId: task.id, subtaskId: subtask.id })
+              }
+            >
+              ×
+            </button>
+          </li>
+        ))}
+      </ul>
+      <form className="add" onSubmit={submit}>
+        <input
+          aria-label="Add subtask"
+          placeholder="Add subtask"
+          value={title}
+          onChange={(event) => setTitle(event.target.value)}
+          maxLength={200}
+        />
+        <button type="submit" disabled={!title.trim() || add.isPending}>
+          Add
+        </button>
+      </form>
+      {error && <p role="alert">{error.message}</p>}
+    </section>
   );
 }

@@ -10,11 +10,14 @@ from sqlalchemy.orm import Session
 from app import crud
 from app.db import DbSession
 from app.errors import ServiceUnavailable
-from app.models import Task, User, UserSession
+from app.models import Subtask, Task, User, UserSession
 from app.schemas import (
     AuthOut,
     Credentials,
     ErrorOut,
+    SubtaskCreate,
+    SubtaskOut,
+    SubtaskUpdate,
     TaskCreate,
     TaskOut,
     TaskUpdate,
@@ -106,6 +109,43 @@ def update_task(changes: TaskUpdate, task: OwnedTask, db: DbSession) -> Task:
 )
 def delete_task(task: OwnedTask, db: DbSession) -> None:
     crud.delete(db, task)
+
+
+@router.post(
+    "/tasks/{task_id}/subtasks",
+    status_code=status.HTTP_201_CREATED,
+    response_model=SubtaskOut,
+    responses=errors(400, 401, 404),
+)
+def add_subtask(new: SubtaskCreate, task: OwnedTask, db: DbSession) -> Subtask:
+    return crud.add_subtask(db, task, new.title)
+
+
+def owned_subtask(subtask_id: uuid.UUID, task: OwnedTask, db: DbSession) -> Subtask:
+    return crud.get_subtask(db, task, subtask_id)
+
+
+OwnedSubtask = Annotated[Subtask, Depends(owned_subtask)]
+
+
+@router.patch(
+    "/tasks/{task_id}/subtasks/{subtask_id}",
+    response_model=SubtaskOut,
+    responses=errors(400, 401, 404),
+)
+def update_subtask(
+    changes: SubtaskUpdate, subtask: OwnedSubtask, db: DbSession
+) -> Subtask:
+    return crud.update_subtask(db, subtask, changes.model_dump(exclude_unset=True))
+
+
+@router.delete(
+    "/tasks/{task_id}/subtasks/{subtask_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=errors(400, 401, 404),
+)
+def delete_subtask(subtask: OwnedSubtask, db: DbSession) -> None:
+    crud.delete(db, subtask)
 
 
 @router.get("/health", responses=errors(503))

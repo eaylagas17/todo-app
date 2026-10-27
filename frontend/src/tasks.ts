@@ -43,3 +43,10 @@ export function matchesSearch(query: string): (task: Task) => boolean {
       normalize(text).includes(needle),
     );
 }
+
+/** "1 of 3" for the row and the checklist, or null when there's nothing to count. */
+export function subtaskProgress(task: Task): string | null {
+  if (task.subtasks.length === 0) return null;
+  const done = task.subtasks.filter((subtask) => subtask.completed).length;
+  return `${done} of ${task.subtasks.length}`;
+}

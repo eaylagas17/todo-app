@@ -308,6 +308,10 @@ label {
   font-size: 0.875em;
 }
 
+.task .sub > span + span::before {
+  content: " · ";
+}
+
 .done .title {
   text-decoration: line-through;
   color: var(--sub);
@@ -410,4 +414,43 @@ label {
   from {
     transform: translateY(100%);
   }
+}
+
+/* The checklist under the editor: the same round circles as the list, a counter, an add field. */
+.checklist {
+  margin-bottom: 1.5rem;
+}
+
+.checklist h3 {
+  font-size: 1rem;
+  margin: 0 0 0.25rem;
+}
+
+.checklist .count {
+  margin-left: 0.25rem;
+  color: var(--sub);
+  font-weight: 400;
+}
+
+.checklist ul {
+  list-style: none;
+  margin: 0 0 0.5rem;
+  padding: 0;
+}
+
+.checklist li {
+  display: flex;
+  align-items: center;
+  border-bottom: 1px solid var(--sep);
+}
+
+.checklist li .check {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.checklist .delete {
+  color: var(--sub);
+  font-size: 1.25rem;
 }

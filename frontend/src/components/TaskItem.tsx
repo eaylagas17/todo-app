@@ -2,6 +2,7 @@ import type { CSSProperties, ReactNode, Ref } from "react";
 import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
 import { useDeleteTask, useToggleTask } from "../queries.ts";
+import { subtaskProgress } from "../tasks.ts";
 
 type Props = {
   task: Task;
@@ -17,6 +18,8 @@ export function TaskItem({ task, handle, ref, style }: Props) {
   // Opening a task changes only ?task, so a filter or a view in the URL stays as it is.
   const panel = new URLSearchParams(params);
   panel.set("task", task.id);
+  const preview = task.description.split("\n")[0];
+  const progress = subtaskProgress(task);
   return (
     <li className="task" ref={ref} style={style}>
       {handle}
@@ -36,8 +39,11 @@ export function TaskItem({ task, handle, ref, style }: Props) {
         aria-current={params.get("task") === task.id ? "true" : undefined}
       >
         <span className="title">{task.title}</span>
-        {task.description && (
-          <span className="sub">{task.description.split("\n")[0]}</span>
+        {(preview || progress) && (
+          <span className="sub">
+            {preview && <span className="preview">{preview}</span>}
+            {progress && <span className="progress">{progress}</span>}
+          </span>
         )}
       </Link>
       <button

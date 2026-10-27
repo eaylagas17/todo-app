@@ -1,6 +1,6 @@
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
-import type { AuthResult, Task } from "../api.ts";
+import type { AuthResult, Subtask, Task } from "../api.ts";
 
 type Account = { id: string; email: string; password: string };
 type Credentials = { email: string; password: string };
@@ -52,6 +52,7 @@ function addTask(ownerId: string, title: string, description = ""): Task {
     description,
     completed: false,
     position: top + 1,
+    subtasks: [],
   };
   db.tasks.set(task.id, { ownerId, task });
   return { ...task };
@@ -96,6 +97,16 @@ function ownTask(request: Request, id: string) {
   if (entry?.ownerId !== ownerId)
     return { error: fail(404, "TASK_NOT_FOUND", "Task not found") };
   return { task: entry.task };
+}
+
+// The task first (404 TASK_NOT_FOUND if it isn't the caller's), then the subtask within it.
+function ownSubtask(request: Request, params: Record<string, unknown>) {
+  const { task, error } = ownTask(request, String(params.id));
+  if (error) return { error };
+  const subtask = task.subtasks.find((s) => s.id === params.subtaskId);
+  if (!subtask)
+    return { error: fail(404, "SUBTASK_NOT_FOUND", "Subtask not found") };
+  return { task, subtask };
 }
 
 export const server = setupServer(
@@ -156,6 +167,33 @@ export const server = setupServer(
     if (error) return error;
     Object.assign(task, changes);
     return HttpResponse.json({ ...task });
+  }),
+  http.post("/api/tasks/:id/subtasks", async ({ request, params }) => {
+    const body = (await request.json()) as { title: string };
+    record(request, body);
+    const { task, error } = ownTask(request, String(params.id));
+    if (error) return error;
+    const subtask = { id: nextId(), title: body.title, completed: false };
+    task.subtasks.push(subtask);
+    return HttpResponse.json({ ...subtask }, { status: 201 });
+  }),
+  http.patch(
+    "/api/tasks/:id/subtasks/:subtaskId",
+    async ({ request, params }) => {
+      const changes = (await request.json()) as Partial<Subtask>;
+      record(request, changes);
+      const { subtask, error } = ownSubtask(request, params);
+      if (error) return error;
+      Object.assign(subtask, changes);
+      return HttpResponse.json({ ...subtask });
+    },
+  ),
+  http.delete("/api/tasks/:id/subtasks/:subtaskId", ({ request, params }) => {
+    record(request);
+    const { task, subtask, error } = ownSubtask(request, params);
+    if (error) return error;
+    task.subtasks = task.subtasks.filter((s) => s !== subtask);
+    return new HttpResponse(null, { status: 204 });
   }),
   http.delete("/api/tasks/:id", ({ request, params }) => {
     record(request);

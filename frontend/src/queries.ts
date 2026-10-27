@@ -7,13 +7,17 @@ import {
 } from "@tanstack/react-query";
 import {
   ApiError,
+  addSubtask,
   createTask,
+  deleteSubtask,
   deleteTask,
   getTask,
   listTasks,
   NetworkError,
+  type Subtask,
   type Task,
   type TaskChanges,
+  updateSubtask,
   updateTask,
 } from "./api.ts";
 import { getAuth } from "./auth.ts";
@@ -45,6 +49,16 @@ export const taskKey = (id: string) => [...TASKS_KEY, id] as const;
 
 const withChanges = (tasks: Task[], id: string, changes: TaskChanges) =>
   tasks.map((task) => (task.id === id ? { ...task, ...changes } : task));
+
+// One task's checklist, changed by a function: append, tick or remove. The rest stays as it is.
+const withSubtaskChanges = (
+  tasks: Task[],
+  taskId: string,
+  change: (subtasks: Subtask[]) => Subtask[],
+) =>
+  tasks.map((task) =>
+    task.id === taskId ? { ...task, subtasks: change(task.subtasks) } : task,
+  );
 
 export const useTasks = () =>
   useQuery({ queryKey: TASKS_KEY, queryFn: listTasks, select: byPosition });
@@ -173,6 +187,49 @@ export function useDeleteTask() {
     (tasks, id) => tasks.filter((task) => task.id !== id),
   );
 }
+
+// Not optimistic, like creating a task: the subtask's id comes from the server.
+export function useAddSubtask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, title }: { taskId: string; title: string }) =>
+      addSubtask(taskId, title),
+    onMutate: startSession,
+    onSuccess: (subtask, { taskId }, started) => {
+      if (!stillCurrent(started)) return;
+      const append = (subtasks: Subtask[]) => [...subtasks, subtask];
+      queryClient.setQueryData<Task[]>(
+        TASKS_KEY,
+        (tasks) => tasks && withSubtaskChanges(tasks, taskId, append),
+      );
+      queryClient.setQueryData<Task>(
+        taskKey(taskId),
+        (task) => task && { ...task, subtasks: append(task.subtasks) },
+      );
+    },
+  });
+}
+
+type SubtaskRef = { taskId: string; subtaskId: string };
+
+export const useToggleSubtask = () =>
+  useOptimisticTaskMutation(
+    ({ taskId, subtaskId, completed }: SubtaskRef & { completed: boolean }) =>
+      updateSubtask(taskId, subtaskId, { completed }),
+    (tasks, { taskId, subtaskId, completed }) =>
+      withSubtaskChanges(tasks, taskId, (subtasks) =>
+        subtasks.map((s) => (s.id === subtaskId ? { ...s, completed } : s)),
+      ),
+  );
+
+export const useDeleteSubtask = () =>
+  useOptimisticTaskMutation(
+    ({ taskId, subtaskId }: SubtaskRef) => deleteSubtask(taskId, subtaskId),
+    (tasks, { taskId, subtaskId }) =>
+      withSubtaskChanges(tasks, taskId, (subtasks) =>
+        subtasks.filter((s) => s.id !== subtaskId),
+      ),
+  );
 
 /**
  * The error from the most recent toggle, move or delete, if that one failed. Read from the
