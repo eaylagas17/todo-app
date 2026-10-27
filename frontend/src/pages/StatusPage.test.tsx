@@ -17,14 +17,7 @@ const answer = (replica: string) => ({
   started_at: "2026-10-27T09:00:00Z",
   uptime_seconds: 3725,
   database: { ok: true, latency_ms: 1.4 },
-  ai: {
-    enabled: true,
-    calls_today: 3,
-    spent_this_month_usd: 0.0002,
-    monthly_budget_usd: 1,
-    per_user_per_minute: 10,
-    per_user_per_day: 100,
-  },
+  ai_enabled: true,
 });
 
 it("shows the running version and the database state", async () => {
@@ -33,6 +26,10 @@ it("shows the running version and the database state", async () => {
   expect(await screen.findByText("abc123")).toBeInTheDocument();
   expect(screen.getByText("OK, 1.4 ms")).toBeInTheDocument();
   expect(screen.getByText("1 h 2 min")).toBeInTheDocument();
+  expect(screen.getByText("On")).toBeInTheDocument();
+  // Operator numbers stay off the page (Feedback 7).
+  expect(screen.queryByText(/spend/i)).toBeNull();
+  expect(screen.queryByText(/calls today/i)).toBeNull();
 });
 
 it("remembers which replicas answered", async () => {
@@ -59,4 +56,14 @@ it("the header shows a Status tab", async () => {
   expect(
     await screen.findByRole("heading", { name: "Status", level: 1 }),
   ).toBeInTheDocument();
+});
+
+it("links to the interactive API docs, in a new tab", async () => {
+  renderApp("/status", { as: ada });
+  const docs = await screen.findByRole("link", {
+    name: "Open the interactive API docs",
+  });
+  expect(docs).toHaveAttribute("href", "/docs");
+  expect(docs).toHaveAttribute("target", "_blank");
+  expect(docs).toHaveAttribute("rel", "noreferrer");
 });

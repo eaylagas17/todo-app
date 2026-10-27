@@ -25,6 +25,8 @@ type Props = {
   phase?: "entering" | "leaving";
   /** Ticked, and leaves the list when its 5-second window ends: show the draining bar. */
   leavingSoon?: boolean;
+  /** Kept on screen by a drag after it left the list (it may already show elsewhere). */
+  held?: boolean;
 };
 
 export function TaskItem({
@@ -37,6 +39,7 @@ export function TaskItem({
   done = false,
   phase,
   leavingSoon = false,
+  held = false,
 }: Props) {
   const toggle = useToggleTask();
   const linger = useLinger();
@@ -84,14 +87,17 @@ export function TaskItem({
         {
           ...style,
           // Accent B: the browser matches each row before and after a reorder by this name.
-          // Not on a closing row: the same task may already be in Recently completed, and two
-          // elements with one name would cancel the transition.
-          viewTransitionName: leaving ? undefined : `task-${task.id}`,
+          // Not on a closing or held row: the same task may already be in Recently completed,
+          // and two elements with one name would cancel the transition.
+          viewTransitionName: leaving || held ? undefined : `task-${task.id}`,
           "--hue": link?.hue,
         } as CSSProperties
       }
     >
-      {handle}
+      {/* No handle while searching or filtering: an empty space as wide as one keeps the row's
+          steps and circles where they were. Completed rows have no handle column at all. */}
+      {handle ??
+        (!done && <span className="handle-space" aria-hidden="true" />)}
       {link ? (
         <span
           role="img"

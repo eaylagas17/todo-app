@@ -6,7 +6,12 @@ import { defineConfig } from "vite";
 export default defineConfig({
   plugins: [react()],
   server: {
-    proxy: { "/api": "http://localhost:8000" },
+    // The API, and its docs (FastAPI serves /docs and the /openapi.json it reads).
+    proxy: {
+      "/api": "http://localhost:8000",
+      "/docs": "http://localhost:8000",
+      "/openapi.json": "http://localhost:8000",
+    },
   },
   test: {
     environment: "jsdom",

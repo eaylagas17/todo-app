@@ -355,7 +355,7 @@ export const server = setupServer(
       started_at: "2026-10-27T00:00:00Z",
       uptime_seconds: 5,
       database: { ok: true, latency_ms: 1 },
-      ai: null,
+      ai_enabled: false,
     }),
   ),
   // A smaller copy of seed.EXAMPLE: the titles, in order, and the links between them.

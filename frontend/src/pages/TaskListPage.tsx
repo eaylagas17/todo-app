@@ -224,7 +224,6 @@ function TaskList({
       </>
     );
   }
-  if (all.length === 0) return <p>No tasks yet. Add your first one above.</p>;
   // Derived, not stored: the main list, the visible part and Recently completed are all
   // recomputed from the cache, the undo windows and the query (spec §5.7).
   const main = inMainList(all, lingering);
@@ -246,7 +245,8 @@ function TaskList({
   const filtered = Boolean(query.trim() || category);
 
   let empty: string | null = null;
-  if (visible.length === 0)
+  if (all.length === 0) empty = "No tasks yet. Add your first one above.";
+  else if (visible.length === 0)
     empty = query.trim()
       ? `No tasks match "${query.trim()}".`
       : category
@@ -276,12 +276,12 @@ function TaskList({
         />
       )}
       {empty && <p>{empty}</p>}
-      {recent.length > 0 && (
-        <section className="recent" aria-labelledby="recent-heading">
-          <h2 id="recent-heading">Recently completed</h2>
-          <TaskRows label="Recently completed" tasks={recent} done />
-        </section>
-      )}
+      <TaskRows
+        heading="Recently completed"
+        label="Recently completed"
+        tasks={recent}
+        done
+      />
     </>
   );
 }

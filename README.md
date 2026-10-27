@@ -31,8 +31,8 @@ Open http://localhost:5173. Ctrl+C stops everything.
 **Tests:**
 
 ```bash
-cd backend && uv run pytest --cov=app        # 117 tests
-cd ../frontend && npm ci && npm test         # 142 tests
+cd backend && uv run pytest --cov=app        # 123 tests
+cd ../frontend && npm ci && npm test         # 208 tests
 ```
 
 ## Summary
@@ -72,31 +72,47 @@ flowchart LR
 - [x] A Features tab and a Status page
 - [x] Completed tasks: a 5-second undo, Recently completed under the list, and a Completed page
 
-### With more time
+### What's next, and what would trigger it
 
-| Feature | Estimate |
-|---|---|
-| Due dates and reminders (reminders need a background worker) | 1 day |
-| Filters (all / active / done), with the search kept in the URL | 1.5 h |
-| Undo after deleting | 1 h |
-| Shared to-dos: a shared task keeps its creator's category; each person orders it in their own list; a link is visible only to its maker unless both tasks are shared | 1.5 days |
-| Kubernetes on AKS (Container Apps already runs on Kubernetes; AKS pays off with many services or a service mesh) | 1 day |
-| Monitoring: Prometheus and Grafana, plus tracing | 1 day |
-| Real-time sync between tabs and devices | 1 day |
-| Password reset and email confirmation | 1 day |
+Estimates are for me working with an AI assistant, the way this project was built (see [AI assistance](#ai-assistance)). The assistant writes most of the code; my time goes into deciding what to build, reviewing every change, testing it in a real browser, and making sure I can explain it.
 
-### To make it more robust
+Nothing here is built ahead of need. Each request touches only one person's tasks, so more users means more requests, not slower ones. More copies of the API absorb that (Container Apps adds them on its own) until the one database becomes the limit. So the list splits three ways: what's needed before strangers use it at all, what a specific number would trigger, and what users would ask for.
+
+**Before strangers use it, at any number of users:**
 
 | Change | Why | Estimate |
 |---|---|---|
-| Version column with `If-Match` → 412 | Two devices editing one task: today the last save wins | 2 h |
-| Alembic migrations as a deploy step | Now urgent: the cloud database is live, and `create_all` can't change existing tables | 2 h |
-| Azure Container Registry with a managed identity | Pull the image without a public registry | 1 h |
-| VNet integration for the database | Today it accepts connections from Azure services | 2 h |
-| Rate limiting on sign-in | Password guessing; Argon2 is memory-heavy under a flood | 2 h |
-| httpOnly cookie sessions, CSRF protection, a Content Security Policy | Keeps tokens out of JavaScript's reach | 3 h |
-| Keyset pagination | Lists of thousands of tasks | 2 h |
-| Structured logs with request ids | Tracing a request across many copies | 1 h |
+| Rate limits on sign-up, sign-in and AI calls, per IP and per account | Today one person can guess passwords, or open many accounts to drain the shared AI budget (capped at $1 a month) | 1 h |
+| Email confirmation and password reset | People forget passwords; confirming an email makes throwaway accounts costly | 3 h |
+| Alembic migrations, run on deploy | `create_all` creates tables but never changes one: the first schema change on a database with real data needs it | 1 h |
+| Browser tests in CI: Playwright checks of layout and flows, and an accessibility scan | Today's tests run in jsdom, which can't see layout: rows that shifted when filtering passed every test | 3 h |
+| Structured logs with request ids | With several copies running, one failing request must be traceable across them | 30 min |
+| httpOnly cookie sessions, CSRF protection, a Content Security Policy | A token in `localStorage` can be read by injected script; React already escapes text, so this is defence in depth | 2 h |
+
+**When usage grows, with the signal for each:**
+
+| Signal | Change | Estimate |
+|---|---|---|
+| Database connections or CPU near the limit (the smallest Azure tier allows about 50 connections) | Turn on the connection pooler Azure's Postgres includes (PgBouncer), then a bigger tier; read replicas for the task list | 1 h, then a setting |
+| Sign-ins slowing under load (Argon2 is slow on purpose) | The rate limits above, more copies, then tune Argon2's cost | 30 min |
+| The task list slower than ~200 ms at the 95th percentile (people with thousands of tasks) | Keyset pagination | 1 h |
+| People losing edits made on two devices at once | A version column with `If-Match`, answering 412 to the stale one | 1 h |
+| Needing latency and error rates per endpoint | Tracing and metrics with OpenTelemetry into Azure Monitor (Prometheus and Grafana elsewhere) | 4 h |
+
+**What people would ask for:**
+
+| Feature | Estimate |
+|---|---|
+| Due dates and reminders (reminders need a background worker) | 4 h |
+| Undo after deleting (the same 5-second window that completing uses) | 45 min |
+| Search kept in the URL, so a filtered view survives a reload and can be shared | 30 min |
+| Real-time sync between tabs and devices | 4 h |
+| Shared to-dos: a shared task keeps its creator's category; each person orders it in their own list; a link is visible only to its maker unless both tasks are shared | 1 day |
+
+**Deliberately not planned:**
+- **Kubernetes on AKS.** Container Apps already runs on Kubernetes and autoscales; AKS pays off with many services or a service mesh.
+- **A cache or a queue.** Nothing is slow or shared enough to cache; reminders would be the first job for a queue.
+- **Splitting into services.** One API and one database is the right size for this domain.
 
 ## API
 
@@ -109,14 +125,14 @@ All under `/api` (interactive docs at http://localhost:8000/docs). Task routes n
 - `POST /tasks/{id}/links {depends_on_id}`, `DELETE /tasks/{id}/links/{depends_on_id}`: "this task waits for that one"
 - `GET`/`POST /categories {name}`, `PATCH`/`DELETE /categories/{id}`; `POST /tasks/{id}/category-suggestion`: ask the AI
 - `POST /examples`: add the example tasks
-- `GET /health`: 200, or 503 when the database is unreachable; `GET /status`: version, replica, database and AI, always 200
+- `GET /health`: 200, or 503 when the database is unreachable; `GET /status`: version, replica, uptime, database, and whether AI is on; always 200
 
 Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` for validation): 400 validation, 401 not signed in, 404 not found, 409 conflicts (email taken, category exists, a link loop, a stale order), 429 too many AI requests, 503 AI or database unavailable.
 
 ## Testing
 
 - **Backend:** 123 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
-- **Frontend:** 202 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
+- **Frontend:** 208 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
 - **Edge cases:** 58, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
 - **CI** (GitHub Actions) runs lint, types, both suites on both databases, and a Docker smoke test on every push.
 

@@ -45,9 +45,10 @@ it("a ticked task stays for five seconds with a draining bar, then moves to Rece
   const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
   await user.click(await checkbox("a"));
   expect(rowIn("Tasks", "a").querySelector(".undo-bar")).not.toBeNull();
-  await advance(LINGER_MS - 100);
+  // The fake clock also runs on its own, so leave a second of slack either side.
+  await advance(LINGER_MS - 1000);
   expect(titlesIn("Tasks")).toEqual(["a", "b"]);
-  await advance(200 + LEAVE_MS);
+  await advance(1000 + LEAVE_MS);
   expect(titlesIn("Tasks")).toEqual(["b"]);
   expect(titlesIn("Recently completed")).toEqual(["a"]);
 });
@@ -347,5 +348,35 @@ it("choosing a category leaves the Completed page", async () => {
   expect(screen.getByTestId("location")).not.toHaveTextContent("list=");
   expect(
     await screen.findByRole("heading", { name: "My tasks" }),
+  ).toBeInTheDocument();
+});
+
+it("unticking the only Recently completed row closes it up and keeps focus", async () => {
+  const [, b] = seedTasks(ada, ["a", "b"]);
+  complete(b, new Date());
+  const { user } = renderApp("/tasks", { as: ada });
+  await checkbox("a");
+  within(list("Recently completed")!)
+    .getByRole("checkbox", { name: "Complete b" })
+    .focus();
+  await user.keyboard("[Space]");
+  // The section stays while its last row closes, and focus follows b back into the list.
+  expect(
+    list("Recently completed")?.querySelector("li.closing"),
+  ).not.toBeNull();
+  await waitFor(() =>
+    expect(
+      within(list("Tasks")!).getByRole("checkbox", { name: "Complete b" }),
+    ).toHaveFocus(),
+  );
+});
+
+it("deleting the last task closes its row up", async () => {
+  seedTasks(ada, ["a"]);
+  const { user } = renderApp("/tasks", { as: ada });
+  await user.click(await screen.findByRole("button", { name: "Delete a" }));
+  expect(document.querySelector("li.closing .title")?.textContent).toBe("a");
+  expect(
+    screen.getByText("No tasks yet. Add your first one above."),
   ).toBeInTheDocument();
 });

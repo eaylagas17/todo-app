@@ -30,7 +30,6 @@ export function StatusPage() {
     );
   }
   const data = status.data;
-  const ai = data?.ai;
 
   return (
     <main className="page narrow">
@@ -52,22 +51,7 @@ export function StatusPage() {
               : "Unreachable"}
           </dd>
           <dt>AI suggestions</dt>
-          <dd>{ai ? (ai.enabled ? "On" : "Off: no key") : "Unknown"}</dd>
-          {ai && (
-            <>
-              <dt>AI calls today</dt>
-              <dd>{ai.calls_today}</dd>
-              <dt>AI spend this month</dt>
-              <dd>
-                ${ai.spent_this_month_usd.toFixed(4)} of $
-                {ai.monthly_budget_usd.toFixed(2)}
-              </dd>
-              <dt>AI limits per person</dt>
-              <dd>
-                {ai.per_user_per_minute} a minute, {ai.per_user_per_day} a day
-              </dd>
-            </>
-          )}
+          <dd>{data.ai_enabled ? "On" : "Off: no key"}</dd>
         </dl>
       )}
       <button
@@ -92,6 +76,15 @@ export function StatusPage() {
           </li>
         ))}
       </ol>
+      <h2>The API</h2>
+      <p className="how">
+        Every endpoint, with its fields and error codes, generated from the code
+        (OpenAPI). You can call them from the page.
+      </p>
+      {/* A plain link, not the router's: /docs is served by FastAPI, not by this app. */}
+      <a href="/docs" target="_blank" rel="noreferrer">
+        Open the interactive API docs
+      </a>
     </main>
   );
 }

@@ -29,6 +29,8 @@ type Drag = {
   top: number;
   slot: number;
   preview: { order: string[]; block: string[] };
+  /** Released and saved: still drawn as previewed until the list holds the new order. */
+  dropped?: boolean;
 };
 
 type Options = {
@@ -55,6 +57,16 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
 
   // Leaving the page mid-drag drops the window listeners.
   useEffect(() => () => stopPointer.current(), []);
+
+  // After a drop, the preview stays drawn until the list holds the new order (the optimistic
+  // update writes it a moment later); otherwise the rows would snap back to where the drag began
+  // and glide forward again. The list calls release() when it sees the new order. Should it
+  // never come (an error before the update), stop drawing the preview after a second.
+  useEffect(() => {
+    if (!drag?.dropped) return;
+    const giveUp = setTimeout(() => setDrag(null), 1000);
+    return () => clearTimeout(giveUp);
+  }, [drag]);
 
   function show(next: Drag | null) {
     current.current = next;
@@ -108,13 +120,27 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
   }
 
   // Pointer: the finger's top, kept inside the list (§5.1), decides the slot.
+  // The slot counts only the rows outside the travelling group, since those are the rows it
+  // passes: the group's top (the finger's top, less any members riding above) against their
+  // heights, plus the members above. The group can change with the slot, so settle it: it
+  // stops changing within a step or two.
   function follow(d: Drag, top: number): Drag {
-    const height = d.heights.get(d.active)!;
-    const inside = Math.min(Math.max(top, 0), d.listHeight - height);
-    const others = d.start
-      .filter((id) => id !== d.active)
-      .map((id) => d.heights.get(id)!);
-    return moveTo(d, slotAt(inside, others), inside);
+    const height = (id: string) => d.heights.get(id)!;
+    const inside = Math.min(Math.max(top, 0), d.listHeight - height(d.active));
+    let { block } = d.preview;
+    let slot = d.slot;
+    // ponytail: up to 3 settling rounds, each O(V + E); a group only grows by what it reaches
+    for (let round = 0; round < 3; round++) {
+      const members = new Set(block);
+      const above = block.slice(0, block.indexOf(d.active));
+      const groupTop = inside - above.reduce((sum, id) => sum + height(id), 0);
+      const passable = d.start.filter((id) => !members.has(id)).map(height);
+      slot = slotAt(groupTop, passable) + above.length;
+      const next = sweep(d.start, waitsFor, d.active, slot).block;
+      if (next.join() === block.join()) break;
+      block = next;
+    }
+    return moveTo(d, slot, inside);
   }
 
   function finish(d: Drag) {
@@ -125,8 +151,10 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
         ? `${titleOf(d.active)} was moved.${others.length ? ` ${others.join(", ")} moved with it.` : ""}`
         : `Moving ${titleOf(d.active)} was cancelled.`,
     );
-    show(null);
-    if (moved) onDrop(d.preview.order);
+    if (!moved) return show(null);
+    current.current = null;
+    setDrag({ ...d, dropped: true });
+    onDrop(d.preview.order);
   }
 
   function cancel(d: Drag) {
@@ -143,6 +171,9 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
       )
         return;
       event.preventDefault();
+      // The handle keeps the pointer, so a release outside the window still ends the drag (its
+      // events still bubble to the window listeners below). Optional: jsdom lacks it.
+      event.currentTarget.setPointerCapture?.(event.pointerId);
       const pointerId = event.pointerId;
       const startY = event.clientY + window.scrollY;
       let clientY = event.clientY;
@@ -250,7 +281,11 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
     handleProps,
     announcement,
     instructionsId,
-    dragging: drag !== null,
+    dragging: drag !== null && !drag.dropped,
+    /** From pick-up until the drop's new order is in: the rows must not change meanwhile. */
+    active: drag !== null,
+    dropped: drag?.dropped ?? false,
+    release: () => setDrag(null),
   };
 }
 

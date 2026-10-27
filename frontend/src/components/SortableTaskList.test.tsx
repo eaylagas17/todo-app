@@ -1,8 +1,10 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult } from "../api.ts";
 import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
+import { LEAVE_MS } from "../useLeaving.ts";
+import { LINGER_MS } from "../useLinger.tsx";
 
 let ada: AuthResult;
 
@@ -213,4 +215,104 @@ it("drags past a taller row by its middle", async () => {
       body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
     }),
   );
+});
+
+it("keeps the dropped rows where the drag showed them until the new order is in", async () => {
+  layOutRows();
+  seedTasks(ada, ["a", "b", "c"]);
+  renderApp("/tasks", { as: ada });
+  const grip = await pointerDrag("a", 20, 125);
+  fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
+  // The cache gets the new order a moment later (the optimistic update awaits): until then the
+  // rows stay drawn where the drag left them, instead of snapping back to where it started.
+  if (taskLinks().join() === "a,b,c")
+    expect(row("a").style.transform).toBe("translateY(100px)");
+  await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
+  await waitFor(() => expect(row("a").style.transform).toBe(""));
+});
+
+it("a row leaving the list mid-drag waits until the drop", async () => {
+  layOutRows();
+  const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
+  const { user } = renderApp("/tasks", { as: ada, fakeTimers: true });
+  await user.click(await screen.findByRole("checkbox", { name: "Complete c" }));
+  const grip = await pointerDrag("a", 20, 60);
+  expect(row("a").style.transform).toBe("translateY(40px)");
+  // c's 5-second window ends mid-drag: the rows the drag measured stay put, so nothing shifts
+  // under the pointer.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LINGER_MS + LEAVE_MS + 100);
+  });
+  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  expect(
+    screen.getByRole("list", { name: "Tasks" }).querySelector("li.closing"),
+  ).toBeNull();
+  expect(row("a").style.transform).toBe("translateY(40px)");
+  // c is held in the list and already in Recently completed: only one of them may carry its
+  // view-transition-name, or the browser aborts the drop's transition.
+  const names = [...document.querySelectorAll<HTMLElement>("li.task")]
+    .map((item) => item.style.viewTransitionName)
+    .filter(Boolean);
+  expect(new Set(names).size).toBe(names.length);
+  fireEvent.pointerUp(grip, { clientY: 60, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
+    }),
+  );
+  // After the drop, c leaves as it should.
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(LEAVE_MS + 100);
+  });
+  expect(taskLinks()).toEqual(["b", "a"]);
+});
+
+it("a tall task travelling with the dragged one counts as part of the group", async () => {
+  // a (50px), then b (100px, waits for a), c and d (50px each).
+  layOutRows({ 1: 100 });
+  const [a, b, c, d] = seedTasks(ada, ["a", "b", "c", "d"]);
+  db.tasks.get(b.id)!.task.waits_for = [a.id];
+  renderApp("/tasks", { as: ada });
+  // a's top at 80: b travels with it, so the rows it has passed are c and d (d's middle is at
+  // 75 once b is out of the way). Counting b's height as if b were still above would leave d
+  // below the group and draw the group over it.
+  const grip = await pointerDrag("a", 20, 100);
+  expect(row("d").style.transform).toBe("translateY(-150px)");
+  fireEvent.pointerUp(grip, { clientY: 100, pointerId: 1 });
+  await waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: {
+        ids: [c.id, d.id, a.id, b.id],
+        previous: [a.id, b.id, c.id, d.id],
+      },
+    }),
+  );
+});
+
+it("the handle captures the pointer, so a release outside the window still ends the drag", async () => {
+  const capture = vi.fn();
+  const original = Object.getOwnPropertyDescriptor(
+    Element.prototype,
+    "setPointerCapture",
+  );
+  Object.defineProperty(Element.prototype, "setPointerCapture", {
+    value: capture,
+    configurable: true,
+  });
+  try {
+    seedTasks(ada, ["a", "b"]);
+    renderApp("/tasks", { as: ada });
+    fireEvent.pointerDown(await handle("a"), { clientY: 20, pointerId: 7 });
+    expect(capture).toHaveBeenCalledWith(7);
+  } finally {
+    if (original)
+      Object.defineProperty(Element.prototype, "setPointerCapture", original);
+    else
+      delete (Element.prototype as { setPointerCapture?: unknown })
+        .setPointerCapture;
+  }
 });

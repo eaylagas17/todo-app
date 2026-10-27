@@ -86,6 +86,18 @@ it("hides drag handles while a category is selected", async () => {
   ).not.toBeInTheDocument();
 });
 
+it("keeps the handle's space while a category is selected, so rows don't shift", async () => {
+  const [venue] = seedTasks(ada, ["Venue", "Report"]);
+  file(venue, "Home");
+  renderApp(`/tasks?category=${categoryId("Home")}`, { as: ada });
+  await sidebar();
+  await waitFor(() => expect(rows()).toEqual(["VenueHome"]));
+  const row = screen.getByRole("list", { name: "Tasks" }).querySelector("li")!;
+  // The first thing in the row is an empty, hidden placeholder as wide as the handle.
+  expect(row.firstElementChild).toHaveClass("handle-space");
+  expect(row.firstElementChild).toHaveAttribute("aria-hidden", "true");
+});
+
 it("adds a category", async () => {
   const { user } = renderApp("/tasks", { as: ada });
   const nav = await sidebar();
