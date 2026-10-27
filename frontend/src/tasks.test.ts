@@ -1,13 +1,17 @@
 import { describe, expect, it } from "vitest";
 import type { Task } from "./api.ts";
+import cases from "../../shared/repair-cases.json";
 import {
   allOf,
   byPosition,
   inCategory,
+  isWaiting,
+  linkGroups,
   matchesSearch,
+  moveWithLinks,
+  repair,
+  steps,
   subtaskProgress,
-  moveTask,
-  positionBetween,
 } from "./tasks.ts";
 
 const task = (id: string, position: number, title = id): Task => ({
@@ -18,17 +22,12 @@ const task = (id: string, position: number, title = id): Task => ({
   position,
   subtasks: [],
   category_id: null,
+  waits_for: [],
 });
 
-describe("positionBetween", () => {
-  it("returns the midpoint between two neighbours", () =>
-    expect(positionBetween(1, 2)).toBe(1.5));
-  it("goes one below the first task", () =>
-    expect(positionBetween(undefined, 1)).toBe(0));
-  it("goes one above the last task", () =>
-    expect(positionBetween(2.5, undefined)).toBe(3.5));
-  it("starts an empty list at 1, like the server", () =>
-    expect(positionBetween()).toBe(1));
+const waiting = (id: string, position: number, waitsFor: string[]): Task => ({
+  ...task(id, position),
+  waits_for: waitsFor,
 });
 
 describe("byPosition", () => {
@@ -48,17 +47,92 @@ describe("byPosition", () => {
   });
 });
 
-describe("moveTask", () => {
-  const list = [task("a", 1), task("b", 2), task("c", 3)];
-  it("places a task between its new neighbours", () =>
-    expect(moveTask(list, "c", "b")).toEqual({ id: "c", position: 1.5 }));
-  it("moves a task to the top", () =>
-    expect(moveTask(list, "c", "a")).toEqual({ id: "c", position: 0 }));
-  it("moves a task to the bottom", () =>
-    expect(moveTask(list, "a", "c")).toEqual({ id: "a", position: 4 }));
+describe("repair", () => {
+  // The same table the backend's repair is tested against.
+  it.each(cases)("$name", ({ desired, waits_for, direction, expected }) =>
+    expect(
+      repair(
+        desired,
+        waits_for as Record<string, string[]>,
+        direction as "down" | "up",
+      ),
+    ).toEqual(expected),
+  );
+  it("refuses a loop", () =>
+    expect(() => repair(["A", "B"], { A: ["B"], B: ["A"] }, "down")).toThrow());
+});
+
+describe("moveWithLinks", () => {
+  it("pulls a prerequisite up with a dependent dragged above it", () => {
+    const list = [
+      task("X", 1),
+      task("B", 2),
+      task("Y", 3),
+      waiting("A", 4, ["B"]),
+    ];
+    expect(moveWithLinks(list, "A", "X")).toEqual(["B", "A", "X", "Y"]);
+  });
+  it("pushes a dependent down with a prerequisite dragged below it", () => {
+    const list = [
+      task("B", 1),
+      task("X", 2),
+      waiting("A", 3, ["B"]),
+      task("Y", 4),
+    ];
+    expect(moveWithLinks(list, "B", "Y")).toEqual(["X", "Y", "B", "A"]);
+  });
+  it("is the plain move without links", () =>
+    expect(
+      moveWithLinks([task("a", 1), task("b", 2), task("c", 3)], "c", "a"),
+    ).toEqual(["c", "a", "b"]));
   it("ignores a drop in place", () =>
-    expect(moveTask(list, "b", "b")).toBeNull());
-  it("ignores unknown ids", () => expect(moveTask(list, "x", "a")).toBeNull());
+    expect(moveWithLinks([task("a", 1), task("b", 2)], "b", "b")).toBeNull());
+});
+
+describe("linkGroups", () => {
+  const list = [
+    task("a", 1),
+    waiting("b", 2, ["a"]),
+    task("c", 3),
+    waiting("d", 4, ["c"]),
+    task("e", 5),
+  ];
+  const groups = linkGroups(list);
+  it("numbers groups by first appearance", () => {
+    expect(groups.get("a")?.group).toBe(0);
+    expect(groups.get("b")?.group).toBe(0);
+    expect(groups.get("d")?.group).toBe(1);
+  });
+  it("gives two separate chains different hues", () =>
+    expect(groups.get("a")?.hue).not.toBe(groups.get("c")?.hue));
+  it("leaves an unlinked task out", () => expect(groups.has("e")).toBe(false));
+});
+
+describe("steps", () => {
+  it("counts from 1 along the links", () =>
+    expect(steps([task("A", 1), waiting("B", 2, ["A"])])).toEqual(
+      new Map([
+        ["A", 1],
+        ["B", 2],
+      ]),
+    ));
+  it("is one more than the highest step waited for", () =>
+    expect(
+      steps([task("A", 1), task("G", 2), waiting("S", 3, ["A", "G"])]).get("S"),
+    ).toBe(2));
+});
+
+describe("isWaiting", () => {
+  const venue = task("A", 1);
+  const invites = waiting("B", 2, ["A"]);
+  it("is true until every prerequisite is done", () => {
+    expect(isWaiting(invites, new Map([["A", venue]]))).toBe(true);
+    expect(
+      isWaiting(invites, new Map([["A", { ...venue, completed: true }]])),
+    ).toBe(false);
+  });
+  it("ignores a prerequisite that no longer exists", () =>
+    expect(isWaiting(invites, new Map())).toBe(false));
 });
 
 describe("matchesSearch", () => {

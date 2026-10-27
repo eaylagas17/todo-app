@@ -18,6 +18,8 @@ from app.schemas import (
     CategoryOut,
     Credentials,
     ErrorOut,
+    LinkIn,
+    OrderIn,
     SubtaskCreate,
     SubtaskOut,
     SubtaskUpdate,
@@ -149,6 +151,34 @@ def update_subtask(
 )
 def delete_subtask(subtask: OwnedSubtask, db: DbSession) -> None:
     crud.delete(db, subtask)
+
+
+@router.post(
+    "/tasks/{task_id}/links",
+    status_code=status.HTTP_201_CREATED,
+    response_model=list[TaskOut],
+    responses=errors(400, 401, 404, 409),
+)
+def link_tasks(
+    new: LinkIn, task: OwnedTask, user: SignedInUser, db: DbSession
+) -> list[Task]:
+    return crud.link(db, user, task, new.depends_on_id)
+
+
+@router.delete(
+    "/tasks/{task_id}/links/{depends_on_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    responses=errors(400, 401, 404),
+)
+def unlink_tasks(depends_on_id: uuid.UUID, task: OwnedTask, db: DbSession) -> None:
+    crud.unlink(db, task, depends_on_id)
+
+
+@router.put(
+    "/task-order", response_model=list[TaskOut], responses=errors(400, 401, 409)
+)
+def set_order(order: OrderIn, user: SignedInUser, db: DbSession) -> list[Task]:
+    return crud.set_order(db, user, order.ids)
 
 
 @router.post(

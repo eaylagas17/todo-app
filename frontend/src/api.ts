@@ -14,6 +14,8 @@ export type Task = {
   position: number;
   subtasks: Subtask[];
   category_id: string | null;
+  /** Ids of the tasks this one waits for. */
+  waits_for: string[];
 };
 
 export type AuthResult = { user: User; token: string };
@@ -66,7 +68,10 @@ export async function request<T>(
   {
     method = "GET",
     body,
-  }: { method?: "GET" | "POST" | "PATCH" | "DELETE"; body?: unknown } = {},
+  }: {
+    method?: "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
+    body?: unknown;
+  } = {},
 ): Promise<T> {
   const auth = getAuth();
   let response: Response;
@@ -106,7 +111,7 @@ export const register = (email: string, password: string) =>
 export const logout = () =>
   request<void>("/sessions/current", { method: "DELETE" });
 
-export type TaskChanges = Partial<Omit<Task, "id" | "subtasks">>;
+export type TaskChanges = Partial<Omit<Task, "id" | "subtasks" | "waits_for">>;
 
 // encodeURIComponent: an id taken from the page's URL can't change which API path is called.
 const taskPath = (id: string) => `/tasks/${encodeURIComponent(id)}`;
@@ -160,3 +165,20 @@ export const deleteCategory = (id: string) =>
 /** Asks the server to ask Jev. Answers with the task, categorised or not. */
 export const suggestCategory = (taskId: string) =>
   request<Task>(`${taskPath(taskId)}/category-suggestion`, { method: "POST" });
+
+/** "taskId waits for dependsOnId". Answers with the whole list, in its repaired order. */
+export const linkTasks = (taskId: string, dependsOnId: string) =>
+  request<Task[]>(`${taskPath(taskId)}/links`, {
+    method: "POST",
+    body: { depends_on_id: dependsOnId },
+  });
+
+export const unlinkTasks = (taskId: string, dependsOnId: string) =>
+  request<void>(
+    `${taskPath(taskId)}/links/${encodeURIComponent(dependsOnId)}`,
+    { method: "DELETE" },
+  );
+
+/** The whole list's new order, top to bottom. */
+export const saveOrder = (ids: string[]) =>
+  request<Task[]>("/task-order", { method: "PUT", body: { ids } });
