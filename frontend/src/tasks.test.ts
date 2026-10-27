@@ -3,6 +3,7 @@ import type { Task } from "./api.ts";
 import {
   byPosition,
   matchesSearch,
+  subtaskProgress,
   moveTask,
   positionBetween,
 } from "./tasks.ts";
@@ -13,6 +14,7 @@ const task = (id: string, position: number, title = id): Task => ({
   description: "",
   completed: false,
   position,
+  subtasks: [],
 });
 
 describe("positionBetween", () => {
@@ -78,4 +80,20 @@ describe("matchesSearch", () => {
     ).toBe(true));
   it("matches everything for a blank query", () =>
     expect(ids("  ")).toEqual(["1", "2", "3"]));
+});
+
+describe("subtaskProgress", () => {
+  it("is null for a task without subtasks", () =>
+    expect(subtaskProgress(task("1", 1))).toBeNull());
+  it("counts the done ones", () =>
+    expect(
+      subtaskProgress({
+        ...task("1", 1),
+        subtasks: [
+          { id: "a", title: "a", completed: true },
+          { id: "b", title: "b", completed: true },
+          { id: "c", title: "c", completed: false },
+        ],
+      }),
+    ).toBe("2 of 3"));
 });
