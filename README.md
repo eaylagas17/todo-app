@@ -73,7 +73,7 @@ Estimates assume working with an AI assistant, as this project was (see [AI assi
 
 | Change | Why | Estimate |
 |---|---|---|
-| Rate limits on sign-up, sign-in and AI calls | Stops password guessing and draining the AI budget | 1 h |
+| Rate limits per IP address on sign-up, sign-in and AI calls | Stops password guessing, and one person opening many accounts to drain the shared AI budget | 1 h |
 | Email confirmation and password reset | Forgotten passwords; throwaway accounts | 3 h |
 | Deploys from CI, via GitHub OIDC | Releases are run by hand today | 1 h |
 | Browser tests (Playwright) and an accessibility scan in CI | jsdom can't see layout bugs | 3 h |
