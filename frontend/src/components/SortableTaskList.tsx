@@ -1,3 +1,4 @@
+import { useMemo, useState } from "react";
 import type { Task } from "../api.ts";
 import { useReorder } from "../queries.ts";
 import { type LinkInfo, mergeOrder, waitsForMap } from "../tasks.ts";
@@ -16,19 +17,39 @@ type Props = {
 /** The list in its saved order, reordered by dragging a row's handle (spec §5.1, §5.2). */
 export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
   const reorder = useReorder();
-  const rows = useLeaving(tasks);
-  const ids = tasks.map((task) => task.id);
+  // While a drag (and its drop) is on screen, the rows it measured stay: a row leaving the list
+  // mid-drag (its undo window ending) waits until after the drop, instead of shifting every row
+  // under the pointer. The order and membership are held; each task's data stays live.
+  const [held, setHeld] = useState<Task[] | null>(null);
+  // Memoized: useLeaving compares lists by identity, so a new array every render would loop.
+  const shown = useMemo(() => {
+    if (!held) return tasks;
+    const live = new Map(tasks.map((task) => [task.id, task]));
+    return held.map((task) => live.get(task.id) ?? task);
+  }, [held, tasks]);
+  const rows = useLeaving(shown);
+  const ids = shown.map((task) => task.id);
   // Announcements name tasks by their text: an id means nothing to a screen reader user.
-  const titles = new Map(tasks.map((task) => [task.id, task.title]));
+  const titles = new Map(shown.map((task) => [task.id, task.title]));
   const drag = useSnowballDrag({
     ids,
-    waitsFor: waitsForMap(tasks),
+    waitsFor: waitsForMap(shown),
     titleOf: (id) => titles.get(id) ?? "",
     // The whole list in its new order, exactly as the drag showed it, with the hidden completed
     // tasks kept in their slots (spec §5.7).
     onDrop: (order) =>
       reorder.mutate({ ids: mergeOrder(allIds, order), previous: allIds }),
   });
+
+  if (drag.active && !held) setHeld(tasks);
+  if (!drag.active && held) setHeld(null);
+  // The drop's new order is in once the tasks both lists share are in a different order.
+  if (
+    drag.dropped &&
+    held &&
+    sharedOrder(tasks, held) !== sharedOrder(held, tasks)
+  )
+    drag.release();
 
   return (
     <>
@@ -66,4 +87,13 @@ export function SortableTaskList({ tasks, allIds, links, leavingSoon }: Props) {
       </ul>
     </>
   );
+}
+
+/** The ids of `a` that are also in `b`, in a's order. */
+function sharedOrder(a: Task[], b: Task[]) {
+  const inB = new Set(b.map((task) => task.id));
+  return a
+    .filter((task) => inB.has(task.id))
+    .map((task) => task.id)
+    .join();
 }
