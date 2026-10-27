@@ -4,14 +4,13 @@ from tests.helpers import add_task
 
 
 def test_create_task_returns_it_with_location(client, ada):
-    response = client.post(
-        "/api/tasks", json={"description": "  Buy milk  "}, headers=ada
-    )
+    response = client.post("/api/tasks", json={"title": "  Buy milk  "}, headers=ada)
     assert response.status_code == 201
     task = response.json()
     assert task == {
         "id": task["id"],
-        "description": "Buy milk",
+        "title": "Buy milk",
+        "description": "",
         "completed": False,
         "position": 1,
     }
@@ -22,22 +21,53 @@ def test_new_tasks_go_to_the_end(client, ada):
     assert [add_task(client, ada, d)["position"] for d in ("a", "b", "c")] == [1, 2, 3]
 
 
-@pytest.mark.parametrize("description", ["", "   "])
-def test_create_task_requires_a_description(client, ada, description):
-    response = client.post("/api/tasks", json={"description": description}, headers=ada)
+@pytest.mark.parametrize("title", ["", "   "])
+def test_create_task_requires_a_title(client, ada, title):
+    response = client.post("/api/tasks", json={"title": title}, headers=ada)
     assert response.status_code == 400
-    assert response.json()["error"]["fields"] == {
-        "description": "Description is required"
-    }
+    assert response.json()["error"]["fields"] == {"title": "Title is required"}
 
 
-def test_long_descriptions_are_rejected(client, ada):
-    response = client.post("/api/tasks", json={"description": "x" * 501}, headers=ada)
-    assert response.status_code == 400
-    assert (
-        response.json()["error"]["message"]
-        == "Description must be at most 500 characters"
+def test_create_task_with_title_and_description(client, ada):
+    task = add_task(client, ada, "Book the venue", "Call three places")
+    assert (task["title"], task["description"]) == (
+        "Book the venue",
+        "Call three places",
     )
+
+
+def test_description_is_optional(client, ada):
+    assert add_task(client, ada, "Order the cake")["description"] == ""
+
+
+@pytest.mark.parametrize(
+    ("payload", "field", "message"),
+    [
+        ({"title": "  "}, "title", "Title is required"),
+        ({"title": "x" * 201}, "title", "Title must be at most 200 characters"),
+        (
+            {"title": "ok", "description": "x" * 2001},
+            "description",
+            "Description must be at most 2000 characters",
+        ),
+    ],
+)
+def test_create_task_rejects_bad_title_or_description(
+    client, ada, payload, field, message
+):
+    response = client.post("/api/tasks", json=payload, headers=ada)
+    assert response.status_code == 400
+    assert response.json()["error"]["fields"][field] == message
+
+
+def test_patch_edits_title_and_description(client, ada):
+    task = add_task(client, ada, "Old")
+    body = client.patch(
+        f"/api/tasks/{task['id']}",
+        json={"title": "New", "description": "Notes"},
+        headers=ada,
+    ).json()
+    assert (body["title"], body["description"]) == ("New", "Notes")
 
 
 def test_tasks_require_a_token(client):
@@ -49,7 +79,7 @@ def test_list_returns_only_my_tasks_in_order(client, ada, grace):
         add_task(client, ada, d)
     add_task(client, grace, "theirs")
     tasks = client.get("/api/tasks", headers=ada).json()
-    assert [t["description"] for t in tasks] == ["a", "b", "c"]
+    assert [t["title"] for t in tasks] == ["a", "b", "c"]
 
 
 def test_get_task_returns_it(client, ada):
@@ -96,7 +126,7 @@ def test_patch_position_reorders_the_list(client, ada):
     _, _, third = (add_task(client, ada, d) for d in ("a", "b", "c"))
     client.patch(f"/api/tasks/{third['id']}", json={"position": 1.5}, headers=ada)
     tasks = client.get("/api/tasks", headers=ada).json()
-    assert [t["description"] for t in tasks] == ["a", "c", "b"]
+    assert [t["title"] for t in tasks] == ["a", "c", "b"]
 
 
 @pytest.mark.parametrize(
@@ -104,7 +134,7 @@ def test_patch_position_reorders_the_list(client, ada):
     [
         ({"owner_id": "x"}, "owner_id", "Unknown field: owner_id"),
         ({"completed": None}, "completed", "Completed cannot be null"),
-        ({"description": "  "}, "description", "Description is required"),
+        ({"title": "  "}, "title", "Title is required"),
     ],
 )
 def test_patch_rejects_invalid_changes(client, ada, payload, field, message):
@@ -127,9 +157,9 @@ def test_patch_rejects_an_infinite_position(client, ada):
 
 def test_task_text_is_stored_literally(client, ada):
     text = "'); DROP TABLE tasks; --"
-    assert add_task(client, ada, text)["description"] == text
+    assert add_task(client, ada, text)["title"] == text
     tasks = client.get("/api/tasks", headers=ada).json()
-    assert [t["description"] for t in tasks] == [text]
+    assert [t["title"] for t in tasks] == [text]
 
 
 def test_delete_removes_the_task(client, ada):

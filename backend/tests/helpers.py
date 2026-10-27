@@ -20,9 +20,11 @@ def bearer(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def add_task(client: TestClient, headers: dict[str, str], description: str) -> dict:
+def add_task(
+    client: TestClient, headers: dict[str, str], title: str, description: str = ""
+) -> dict:
     response = client.post(
-        "/api/tasks", json={"description": description}, headers=headers
+        "/api/tasks", json={"title": title, "description": description}, headers=headers
     )
     assert response.status_code == 201, response.text
     return response.json()
