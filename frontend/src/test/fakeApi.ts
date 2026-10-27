@@ -330,6 +330,16 @@ export const server = setupServer(
     renumber(tasks, ids);
     return HttpResponse.json(listOf(ownerId));
   }),
+  http.get("/api/status", () =>
+    HttpResponse.json({
+      version: "dev",
+      replica: "test",
+      started_at: "2026-10-27T00:00:00Z",
+      uptime_seconds: 5,
+      database: { ok: true, latency_ms: 1 },
+      ai: null,
+    }),
+  ),
   // A smaller copy of seed.EXAMPLE: the titles, in order, and the links between them.
   http.post("/api/examples", ({ request }) => {
     record(request);

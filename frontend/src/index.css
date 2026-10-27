@@ -72,6 +72,10 @@ h2 {
   margin: 0;
 }
 
+main > h2 {
+  margin: 1.5rem 0 0.5rem;
+}
+
 a {
   color: var(--link);
 }
@@ -702,14 +706,25 @@ label {
   font-weight: 600;
 }
 
-/* Phones: the email gives its room to the tabs; Sign out stays. */
+/* Phones: the email and the app name give their room to the tabs; Sign out stays. */
 @media (max-width: 499px) {
-  .email {
+  .top {
+    gap: 0.25rem;
+    padding: 0 0.5rem;
+  }
+
+  .email,
+  .brand {
     display: none;
   }
 
-  .tabs {
+  .tabs a {
+    padding: 0 0.45rem;
+  }
+
+  .top > button {
     margin-left: auto;
+    padding: 0 0.6rem;
   }
 }
 
@@ -736,6 +751,31 @@ label {
 }
 
 .feature .how {
+  color: var(--sub);
+  font-size: 0.875rem;
+}
+
+/* The status page: a two-column list of facts, then the replicas that answered. */
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0.5rem 1rem;
+  padding: 1rem;
+  margin: 0 0 1rem;
+  background: var(--card);
+  border-radius: var(--radius);
+}
+
+.facts dt {
+  color: var(--sub);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.replicas time {
   color: var(--sub);
   font-size: 0.875rem;
 }

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Annotated
 
 from email_validator import EmailNotValidError, validate_email
@@ -106,6 +107,29 @@ class CategoryIn(Input):
 class CategoryOut(Output):
     id: uuid.UUID
     name: str
+
+
+class DatabaseStatus(Output):
+    ok: bool
+    latency_ms: float | None
+
+
+class AiStatus(Output):
+    enabled: bool
+    calls_today: int
+    spent_this_month_usd: float
+    monthly_budget_usd: float
+    per_user_per_minute: int
+    per_user_per_day: int
+
+
+class StatusOut(Output):
+    version: str
+    replica: str
+    started_at: datetime
+    uptime_seconds: int
+    database: DatabaseStatus
+    ai: AiStatus | None  # None while the database is down: the counts live there
 
 
 class ErrorDetail(Output):

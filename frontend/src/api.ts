@@ -189,3 +189,22 @@ export const saveOrder = (ids: string[]) =>
 /** Adds the wedding example to the signed-in user's list. Answers with the whole list. */
 export const loadExample = () =>
   request<Task[]>("/examples", { method: "POST" });
+
+export type Status = {
+  version: string;
+  replica: string;
+  started_at: string;
+  uptime_seconds: number;
+  database: { ok: boolean; latency_ms: number | null };
+  ai: {
+    enabled: boolean;
+    calls_today: number;
+    spent_this_month_usd: number;
+    monthly_budget_usd: number;
+    per_user_per_minute: number;
+    per_user_per_day: number;
+  } | null;
+};
+
+/** Public: this copy of the server's version, name and health (spec §14). */
+export const getStatus = () => request<Status>("/status");
