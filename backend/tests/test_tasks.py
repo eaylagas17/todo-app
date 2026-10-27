@@ -14,6 +14,7 @@ def test_create_task_returns_it_with_location(client, ada):
         "completed": False,
         "position": 1,
         "subtasks": [],
+        "category_id": None,
     }
     assert response.headers["location"] == f"/api/tasks/{task['id']}"
 
