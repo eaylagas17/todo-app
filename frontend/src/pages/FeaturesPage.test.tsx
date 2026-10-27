@@ -1,7 +1,7 @@
 import { screen, within } from "@testing-library/react";
 import { beforeEach, expect, it } from "vitest";
 import type { AuthResult } from "../api.ts";
-import { requests, seedUser } from "../test/fakeApi.ts";
+import { requests, seedTasks, seedUser } from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -36,6 +36,7 @@ it("lists every feature with a Show me link", async () => {
 });
 
 it("Show me opens the right screen", async () => {
+  seedTasks(ada, ["Book the venue"]);
   const { user } = renderApp("/features", { as: ada });
   await user.click(
     await screen.findByRole("link", { name: "Show me: The graph view" }),
