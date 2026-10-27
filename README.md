@@ -2,9 +2,9 @@
 
 [![CI](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml/badge.svg)](https://github.com/eaylagas17/todo-app/actions/workflows/ci.yml)
 
-A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks on their own screen. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
+A full-stack to-do list: sign in, add, tick, search, reorder by drag and drop, and edit tasks in a side panel or on their own screen. Tasks have subtasks and categories (suggested by AI), and can wait for each other; a graph view draws those links. React + TypeScript frontend, FastAPI backend, PostgreSQL. Built test-first.
 
-**Demo account:** `demo@example.com` / `demo-password` (created automatically, with four tasks).
+**Demo account:** `demo@example.com` / `demo-password` (created automatically, with a small example plan). The **Features** tab lists every feature with a way to try it.
 
 ## Run it on a Mac
 
@@ -15,7 +15,7 @@ docker compose up --build
 ```
 
 Open http://localhost:8000. One container serves the app and the API; Postgres runs beside it.
-After pulling schema changes, reset the local database: `docker compose down -v`.
+After pulling schema changes, reset the local database: `docker compose down -v` (or, without Docker, delete `backend/todo.db`).
 
 **Without Docker** (uses SQLite; needs Node 24.15+, 22.22+ or 26+):
 
@@ -26,11 +26,13 @@ brew install uv node
 
 Open http://localhost:5173. Ctrl+C stops everything.
 
+**AI categories (optional):** put `TYPESAFE_API_KEY=…` in `backend/.env`; without it the app runs with manual categories.
+
 **Tests:**
 
 ```bash
-cd backend && uv run pytest --cov=app        # 57 tests
-cd ../frontend && npm ci && npm test         # 79 tests
+cd backend && uv run pytest --cov=app        # 117 tests
+cd ../frontend && npm ci && npm test         # 142 tests
 ```
 
 ## Summary
@@ -42,7 +44,9 @@ cd ../frontend && npm ci && npm test         # 79 tests
 - **Secure sessions.** Passwords hashed with Argon2id. Sign-in issues a random token, stored only as a SHA-256 hash, valid 7 days; sign-out deletes it.
 - **Async through one abstraction.** TanStack Query owns every request: caching, retries of only the failures worth retrying, and task changes queued in click order. Ticking, deleting and reordering show at once and roll back with the server's message if it refuses. Offline, timeouts and server errors each get a clear message.
 - **Functional and declarative.** Pure, immutable helpers (`tasks.ts`: `toSorted`, `toSpliced`, a search filter made by a higher-order function); every optimistic change is one hook that takes an update function. Components describe the screen from state.
-- **Responsive and accessible.** Pico CSS, labelled controls, 44 px tap targets, and drag and drop by mouse, touch or keyboard (with screen-reader announcements).
+- **Links between tasks, as a graph.** "A waits for B" is an edge in a per-user DAG. A link that would make a loop is refused (depth-first search, O(V + E)). Dragging a task repairs the order with a two-pass topological sort (Kahn's algorithm with a priority queue, O((V + E) log V)): whatever is in the way moves with the dragged task, in the direction it was dragged. The same algorithm runs in Python and TypeScript, tested against one shared table.
+- **AI that can't go wrong in a bad way.** Categories are suggested by TypeSafe's Jev, a classifier that can only answer with one of the person's own category ids, so the worst case is a wrong category, never injected text. Per-person limits and a monthly spend cap are checked in the database before every call, so every copy of the server shares them.
+- **Responsive and accessible.** Our own small stylesheet (an iPhone Notes look, light and dark), labelled controls, 44 px tap targets, and drag and drop by mouse, touch or keyboard (with screen-reader announcements); every drag has a keyboard alternative.
 - **Easy to run anywhere.** A stateless API on Postgres, one Docker image, and CI on every push.
 
 ```mermaid
@@ -60,6 +64,12 @@ flowchart LR
 - [x] Open a task to view or edit it on its own screen
 - [x] Create, update, tick off and delete tasks
 - [x] Demo account, health check, Docker image, CI
+- [x] A title and an optional description per task
+- [x] Subtasks: a checklist in each task, with "1 of 3" in the list
+- [x] Categories, with AI suggestions and limits
+- [x] Links between tasks, with step numbers, group colours, and an order that keeps them
+- [x] A graph view: steps as columns, links as arrows, subtasks as branches
+- [x] A Features tab and a Status page
 
 ### With more time
 
@@ -68,7 +78,10 @@ flowchart LR
 | Due dates and reminders (reminders need a background worker) | 1 day |
 | Filters (all / active / done), with the search kept in the URL | 1.5 h |
 | Undo after deleting | 1 h |
-| A live deployment on Azure, and Kubernetes manifests tested on a local cluster | 5 h |
+| Shared to-dos: a shared task keeps its creator's category; each person orders it in their own list; a link is visible only to its maker unless both tasks are shared | 1.5 days |
+| Kubernetes on AKS (Container Apps already runs on Kubernetes; AKS pays off with many services or a service mesh) | 1 day |
+| Monitoring: Prometheus and Grafana, plus tracing | 1 day |
+| Real-time sync between tabs and devices | 1 day |
 | Password reset and email confirmation | 1 day |
 
 ### To make it more robust
@@ -76,7 +89,9 @@ flowchart LR
 | Change | Why | Estimate |
 |---|---|---|
 | Version column with `If-Match` → 412 | Two devices editing one task: today the last save wins | 2 h |
-| Alembic migrations as a deploy step | `create_all` can't change existing tables | 2 h |
+| Alembic migrations as a deploy step | Now urgent: the cloud database is live, and `create_all` can't change existing tables | 2 h |
+| Azure Container Registry with a managed identity | Pull the image without a public registry | 1 h |
+| VNet integration for the database | Today it accepts connections from Azure services | 2 h |
 | Rate limiting on sign-in | Password guessing; Argon2 is memory-heavy under a flood | 2 h |
 | httpOnly cookie sessions, CSRF protection, a Content Security Policy | Keeps tokens out of JavaScript's reach | 3 h |
 | Keyset pagination | Lists of thousands of tasks | 2 h |
@@ -87,20 +102,25 @@ flowchart LR
 All under `/api` (interactive docs at http://localhost:8000/docs). Task routes need `Authorization: Bearer <token>`.
 
 - `POST /users`, `POST /sessions`, `DELETE /sessions/current`: sign up, sign in, sign out
-- `GET /tasks`, `POST /tasks {title, description?}`, `GET /tasks/{id}`, `PATCH /tasks/{id}`, `DELETE /tasks/{id}`: task CRUD (PATCH also ticks and reorders)
-- `GET /health`: 200, or 503 when the database is unreachable
+- `GET /tasks`, `POST /tasks {title, description?}`, `GET /tasks/{id}`, `PATCH /tasks/{id} {title?, description?, completed?, category_id?}`, `DELETE /tasks/{id}`: tasks (each with its `subtasks` and `waits_for`)
+- `PUT /task-order {ids}`: the whole list's new order
+- `POST /tasks/{id}/subtasks {title}`, `PATCH`/`DELETE /tasks/{id}/subtasks/{subtask_id}`: subtasks
+- `POST /tasks/{id}/links {depends_on_id}`, `DELETE /tasks/{id}/links/{depends_on_id}`: "this task waits for that one"
+- `GET`/`POST /categories {name}`, `PATCH`/`DELETE /categories/{id}`; `POST /tasks/{id}/category-suggestion`: ask the AI
+- `POST /examples`: add the example tasks
+- `GET /health`: 200, or 503 when the database is unreachable; `GET /status`: version, replica, database and AI, always 200
 
-Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` for validation): 400 validation, 401 not signed in, 404 not found, 409 email taken.
+Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` for validation): 400 validation, 401 not signed in, 404 not found, 409 conflicts (email taken, category exists, a link loop, a stale order), 429 too many AI requests, 503 AI or database unavailable.
 
 ## Testing
 
-- **Backend:** 52 pytest tests through the real HTTP stack, on SQLite and on Postgres. Coverage 98%.
-- **Frontend:** 76 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 97%.
-- **Edge cases:** 32, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
+- **Backend:** 117 pytest tests through the real HTTP stack, on SQLite and on Postgres. The AI is replaced by a fake that answers with a real saved response, so tests never call the network. Coverage 99%.
+- **Frontend:** 142 tests with Vitest (Jest's API), Testing Library and Mock Service Worker, driving the app the way a person does. Coverage 94% (the graph's pinch and pan are checked in a real browser instead).
+- **Edge cases:** 47, each pinned by a named test. Bugs found in a real browser or by an independent review each got a failing test before the fix.
 - **CI** (GitHub Actions) runs lint, types, both suites on both databases, and a Docker smoke test on every push.
 
 <details>
-<summary>The 32 edge cases</summary>
+<summary>The 47 edge cases</summary>
 
 | # | Case | Behaviour |
 |---|---|---|
@@ -116,6 +136,14 @@ Errors are always `{"error": {"code": "…", "message": "…"}}` (plus `fields` 
 | E24–E26 | Server refuses a change; two quick moves; switching accounts | Rolled back with the reason; both kept; no stale tasks |
 | E27–E29 | Accents in search; dragging while searching; task deleted elsewhere | Matched; handles hidden; "Task not found" |
 | E30–E32 | Deep-link refresh in Docker; database down; seeding twice | App loads; 503 health; one demo user |
+| E33 | Blank or over-long title; over-long description | 400 naming the field |
+| E34–E35 | A subtask on someone else's task; a subtask id from another of my tasks | 404 `TASK_NOT_FOUND`; 404 `SUBTASK_NOT_FOUND` |
+| E36–E37 | Same category name in another case; deleting a category | 409 `CATEGORY_EXISTS`; its tasks become uncategorised, a filter on it falls back to All |
+| E38–E39 | AI: no key, down or slow, too many, budget reached; an answer landing after the person chose | 503 / 503 / 429 / 503, the task unaffected; the person's choice kept |
+| E40–E42 | Linking a task to itself; a loop; someone else's task | 400 `LINK_SELF`; 409 `LINK_CYCLE` naming the loop; 404 |
+| E43–E44 | Saving an order from a stale tab; an order that breaks a link | 409 `ORDER_STALE`, the list refreshes; 409 `ORDER_BREAKS_LINK` |
+| E45 | Deleting a task others wait for | Its links go; dependents lose their step |
+| E46–E47 | Dragging while filtering by category; reduced motion or no View Transitions | No drag handles; changes apply without animation |
 
 </details>
 
@@ -155,11 +183,16 @@ Then put the app and the database in one virtual network, point the readiness pr
 ## Project structure
 
 ```
-backend/app/     FastAPI: routes, schemas, crud, models, security, errors
+backend/app/     FastAPI: routes, schemas, crud, models, security, errors; graph.py (links), ai.py (Jev), status.py
 backend/tests/   pytest
-frontend/src/    React: pages, components, queries.ts (TanStack Query), api.ts, tasks.ts
+frontend/src/    React: pages, components, graph/ (the graph view), queries.ts (TanStack Query), api.ts, tasks.ts
+shared/          the order-repair test table, used by both test suites
 Dockerfile, docker-compose.yml, run.sh, .github/workflows/ci.yml
 ```
+
+## Credits
+
+Chain icon from [Flaticon](https://www.flaticon.com/free-icon/url_3214746).
 
 ## AI assistance
 
