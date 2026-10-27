@@ -194,7 +194,7 @@ That works because a schema change only adds things (a table, a nullable column,
 ```bash
 # 1. Tag the release and publish its image
 git tag v1.1.0 && git push origin v1.1.0
-SHA=$(git rev-parse --short v1.1.0)
+SHA=$(git rev-parse --short 'v1.1.0^{commit}')   # the commit; an annotated tag has its own id
 docker buildx build --platform linux/amd64 --build-arg GIT_SHA=$SHA \
   -t ghcr.io/eaylagas17/todo-app:$SHA --push .
 
