@@ -248,6 +248,12 @@ it("a row leaving the list mid-drag waits until the drop", async () => {
     screen.getByRole("list", { name: "Tasks" }).querySelector("li.closing"),
   ).toBeNull();
   expect(row("a").style.transform).toBe("translateY(40px)");
+  // c is held in the list and already in Recently completed: only one of them may carry its
+  // view-transition-name, or the browser aborts the drop's transition.
+  const names = [...document.querySelectorAll<HTMLElement>("li.task")]
+    .map((item) => item.style.viewTransitionName)
+    .filter(Boolean);
+  expect(new Set(names).size).toBe(names.length);
   fireEvent.pointerUp(grip, { clientY: 60, pointerId: 1 });
   await waitFor(() =>
     expect(requests).toContainEqual({
