@@ -3,13 +3,13 @@ import { linkGroups, steps } from "../tasks.ts";
 
 export const NODE_W = 180;
 export const NODE_H = 42;
-export const CHILD_W = 150;
-export const CHILD_H = 24;
-export const CHILD_GAP = 6;
+const CHILD_W = 150;
+const CHILD_H = 24;
+const CHILD_GAP = 6;
 export const CHILD_INDENT = 24;
 export const COL_GAP = 50;
-export const ROW_GAP = 16;
-export const BAND_GAP = 28;
+const ROW_GAP = 16;
+const BAND_GAP = 28;
 
 export type GraphNode = {
   id: string;
@@ -22,7 +22,7 @@ export type GraphNode = {
 };
 
 /** A link arrow or a tree line, with its SVG path. */
-export type GraphEdge = {
+type GraphEdge = {
   kind: "link" | "tree";
   from: string;
   to: string;
@@ -32,7 +32,7 @@ export type GraphEdge = {
 const COL_W = NODE_W + COL_GAP;
 
 /**
- * Where everything goes (spec §10): steps are columns, left to right; each group of linked
+ * Where everything goes: steps are columns, left to right; each group of linked
  * tasks is a horizontal band; unlinked tasks share a last band. Within a column, tasks keep
  * their list order, each with its subtasks hanging below it unless folded.
  *

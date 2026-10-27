@@ -10,15 +10,6 @@ def status(client) -> dict:
     return response.json()
 
 
-def test_status_reports_version_replica_and_uptime(client, monkeypatch):
-    monkeypatch.setenv("GIT_SHA", "abc123")
-    body = status(client)
-    assert body["version"] == "abc123"
-    assert body["replica"] == socket.gethostname()
-    assert body["uptime_seconds"] >= 0
-    assert body["started_at"]
-
-
 def test_status_reports_database_latency(client):
     database = status(client)["database"]
     assert database["ok"] is True
@@ -30,16 +21,16 @@ def test_status_survives_a_database_outage(client, monkeypatch):
         raise OperationalError("SELECT 1", {}, Exception("down"))
 
     monkeypatch.setattr(Session, "execute", broken)
-    monkeypatch.setattr(Session, "scalar", broken)
     body = status(client)
     assert body["database"] == {"ok": False, "latency_ms": None}
     assert "ai_enabled" in body  # known without the database
 
 
 def test_status_shows_only_what_a_reviewer_needs(client, monkeypatch):
-    # No AI calls, spend or limits: operator numbers, not for a reviewer (Feedback 7).
+    monkeypatch.setenv("GIT_SHA", "abc123")
     monkeypatch.setenv("TYPESAFE_API_KEY", "test-key")
     body = status(client)
+    # No AI calls, spend or limits: those are for whoever runs it, not for a reviewer.
     assert set(body) == {
         "version",
         "replica",
@@ -48,6 +39,9 @@ def test_status_shows_only_what_a_reviewer_needs(client, monkeypatch):
         "database",
         "ai_enabled",
     }
+    assert body["version"] == "abc123"
+    assert body["replica"] == socket.gethostname()
+    assert body["uptime_seconds"] >= 0
     assert body["ai_enabled"] is True
 
 

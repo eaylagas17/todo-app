@@ -9,21 +9,18 @@ const BackLink = () => (
   </Link>
 );
 
-function NotFound() {
-  return (
-    <main className="page narrow">
-      <h1>Task not found</h1>
-      <BackLink />
-    </main>
-  );
-}
-
 export function TaskDetailPage() {
   const { id = "" } = useParams();
   const task = useTask(id);
   const navigate = useNavigate();
   // Loading by id can only fail validation on the id itself: a garbled link is a missing task.
-  if (hasStatus(task.error, 404, 400)) return <NotFound />;
+  if (hasStatus(task.error, 404, 400))
+    return (
+      <main className="page narrow">
+        <h1>Task not found</h1>
+        <BackLink />
+      </main>
+    );
   if (task.data === undefined) {
     if (!task.isError) {
       return (

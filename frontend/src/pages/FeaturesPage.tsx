@@ -1,11 +1,8 @@
-import { useId } from "react";
 import { Link, useNavigate } from "react-router";
 import { useLoadExample } from "../queries.ts";
 
-type Feature = { title: string; what: string; how: string; to: string };
-
-/** One card per feature (spec §12): what it does, how to try it, and a way there. */
-export const FEATURES: Feature[] = [
+/** One card per feature: what it does, how to try it, and a way there. */
+const FEATURES = [
   {
     title: "Linked tasks",
     what: "Say one task waits for another. Linked tasks share a colour and show their step: 1, 2, 3. An arrow follows your finger while you link.",
@@ -96,24 +93,22 @@ export function FeaturesPage() {
       {load.error && <p role="alert">{load.error.message}</p>}
       <div className="features">
         {FEATURES.map((feature) => (
-          <FeatureCard key={feature.title} feature={feature} />
+          <article
+            key={feature.title}
+            className="feature"
+            aria-label={feature.title}
+          >
+            <h2>{feature.title}</h2>
+            <p>{feature.what}</p>
+            <p className="how">{feature.how}</p>
+            {/* The label says where: a screen reader's list of links would otherwise be all
+                "Show me". */}
+            <Link to={feature.to} aria-label={`Show me: ${feature.title}`}>
+              Show me
+            </Link>
+          </article>
         ))}
       </div>
     </main>
-  );
-}
-
-function FeatureCard({ feature }: { feature: Feature }) {
-  const heading = useId();
-  return (
-    <article className="feature" aria-labelledby={heading}>
-      <h2 id={heading}>{feature.title}</h2>
-      <p>{feature.what}</p>
-      <p className="how">{feature.how}</p>
-      {/* The label says where: a screen reader's list of links would otherwise be ten "Show me"s. */}
-      <Link to={feature.to} aria-label={`Show me: ${feature.title}`}>
-        Show me
-      </Link>
-    </article>
   );
 }

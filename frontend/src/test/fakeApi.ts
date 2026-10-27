@@ -1,7 +1,8 @@
+import { waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { setupServer } from "msw/node";
+import { expect } from "vitest";
 import type { AuthResult, Category, Subtask, Task } from "../api.ts";
-import { repair } from "./repair.ts";
 
 type Account = { id: string; email: string; password: string };
 type Credentials = { email: string; password: string };
@@ -17,7 +18,7 @@ export const db = {
 
 const DEFAULT_CATEGORIES = ["Work", "Home", "Errands", "Health", "Finance"];
 
-/** Every task request the fake server answered, so tests can check what was sent. */
+/** The requests the fake server answered, so tests can check what was sent. */
 export const requests: Recorded[] = [];
 
 let lastId = 0;
@@ -93,6 +94,16 @@ export function seedTasks(auth: AuthResult, titles: string[]): Task[] {
   return titles.map((title) => addTask(auth.user.id, title));
 }
 
+/** Waits for the list to save the order `ids`, sent with the order it replaced. */
+export const savedOrder = (ids: Task[], previous: Task[]) =>
+  waitFor(() =>
+    expect(requests).toContainEqual({
+      method: "PUT",
+      path: "/api/task-order",
+      body: { ids: ids.map((t) => t.id), previous: previous.map((t) => t.id) },
+    }),
+  );
+
 /** Holds a handler until the test calls release(), to look at the screen mid-request. */
 export function gate() {
   let release = () => {};
@@ -102,7 +113,7 @@ export function gate() {
   return { wait, release };
 }
 
-const fail = (status: number, code: string, message: string) =>
+export const fail = (status: number, code: string, message: string) =>
   HttpResponse.json({ error: { code, message } }, { status });
 
 const signedInUser = (request: Request) =>
@@ -142,16 +153,6 @@ function ownCategory(request: Request, id: string) {
   return { ownerId, category: entry.category };
 }
 
-const nameTaken = (ownerId: string, name: string, except?: string) =>
-  categoriesOf(ownerId).some(
-    ({ category }) =>
-      category.id !== except &&
-      category.name.toLowerCase() === name.toLowerCase(),
-  );
-
-const exists = () =>
-  fail(409, "CATEGORY_EXISTS", "You already have a category with that name");
-
 // The task first (404 TASK_NOT_FOUND if it isn't the caller's), then the subtask within it.
 function ownSubtask(request: Request, params: Record<string, unknown>) {
   const { task, error } = ownTask(request, String(params.id));
@@ -162,34 +163,14 @@ function ownSubtask(request: Request, params: Record<string, unknown>) {
   return { task, subtask };
 }
 
-/** True if any task sits above a task it waits for. */
-function breaksLink(
-  order: string[],
-  waitsFor: Record<string, string[]>,
-): boolean {
-  const index = new Map(order.map((id, i) => [id, i]));
-  return order.some((id) =>
-    (waitsFor[id] ?? []).some(
-      (p) => index.has(p) && index.get(p)! > index.get(id)!,
-    ),
-  );
-}
-
-// The caller's list in order, and its links, for the link and order routes.
-function ownList(ownerId: string) {
-  const tasks = tasksOf(ownerId)
+// The caller's tasks in list order.
+const ownList = (ownerId: string) =>
+  tasksOf(ownerId)
     .map(({ task }) => task)
     .sort((a, b) => a.position - b.position);
-  const waitsFor = Object.fromEntries(tasks.map((t) => [t.id, t.waits_for]));
-  return { tasks, order: tasks.map((t) => t.id), waitsFor };
-}
-
-function renumber(tasks: Task[], order: string[]) {
-  for (const task of tasks) task.position = order.indexOf(task.id) + 1;
-}
 
 const listOf = (ownerId: string) =>
-  ownList(ownerId).tasks.map((task) => ({ ...task }));
+  ownList(ownerId).map((task) => ({ ...task }));
 
 export const server = setupServer(
   http.post("/api/users", async ({ request }) => {
@@ -280,37 +261,15 @@ export const server = setupServer(
     task.subtasks = task.subtasks.filter((s) => s !== subtask);
     return new HttpResponse(null, { status: 204 });
   }),
-  // Mirrors crud.link: self 400, someone else's 404, a loop 409, repairs the order "down".
+  // Unlike crud.link, no loop check or order repair: tests that need a 409 say so.
   http.post("/api/tasks/:id/links", async ({ request, params }) => {
     const body = (await request.json()) as { depends_on_id: string };
     record(request, body);
     const { task, error } = ownTask(request, String(params.id));
     if (error) return error;
-    if (body.depends_on_id === task.id)
-      return fail(400, "LINK_SELF", "A task can't wait for itself");
-    const target = ownTask(request, body.depends_on_id);
-    if (target.error) return target.error;
-    const ownerId = signedInUser(request)!;
-    const { tasks, order, waitsFor } = ownList(ownerId);
-    if (!task.waits_for.includes(body.depends_on_id)) {
-      const linked = {
-        ...waitsFor,
-        [task.id]: [...task.waits_for, body.depends_on_id],
-      };
-      const desired = order.filter((id) => id !== task.id);
-      desired.splice(desired.indexOf(body.depends_on_id) + 1, 0, task.id);
-      let repaired: string[];
-      try {
-        repaired = breaksLink(order, linked)
-          ? repair(desired, linked, "down")
-          : order;
-      } catch {
-        return fail(409, "LINK_CYCLE", "That would make a loop");
-      }
+    if (!task.waits_for.includes(body.depends_on_id))
       task.waits_for.push(body.depends_on_id);
-      renumber(tasks, repaired);
-    }
-    return HttpResponse.json(listOf(ownerId), { status: 201 });
+    return HttpResponse.json(listOf(signedInUser(request)!), { status: 201 });
   }),
   http.delete("/api/tasks/:id/links/:dependsOnId", ({ request, params }) => {
     record(request);
@@ -319,7 +278,7 @@ export const server = setupServer(
     task.waits_for = task.waits_for.filter((id) => id !== params.dependsOnId);
     return new HttpResponse(null, { status: 204 });
   }),
-  // Mirrors crud.set_order: exactly the caller's tasks, in an order that keeps every link.
+  // Like crud.set_order: exactly the caller's tasks, as they were when the client read them.
   http.put("/api/task-order", async ({ request }) => {
     const { ids, previous } = (await request.json()) as {
       ids: string[];
@@ -328,7 +287,8 @@ export const server = setupServer(
     record(request, { ids, previous });
     const ownerId = signedInUser(request);
     if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
-    const { tasks, order, waitsFor } = ownList(ownerId);
+    const tasks = ownList(ownerId);
+    const order = tasks.map((t) => t.id);
     if (
       ids.length !== new Set(ids).size ||
       [...ids].sort().join() !== [...order].sort().join() ||
@@ -339,13 +299,7 @@ export const server = setupServer(
         "ORDER_STALE",
         "Your list changed elsewhere. Refresh and try again.",
       );
-    if (breaksLink(ids, waitsFor))
-      return fail(
-        409,
-        "ORDER_BREAKS_LINK",
-        "A task can't move above a task it waits for.",
-      );
-    renumber(tasks, ids);
+    for (const task of tasks) task.position = ids.indexOf(task.id) + 1;
     return HttpResponse.json(listOf(ownerId));
   }),
   http.get("/api/status", () =>
@@ -358,27 +312,12 @@ export const server = setupServer(
       ai_enabled: false,
     }),
   ),
-  // A smaller copy of seed.EXAMPLE: the titles, in order, and the links between them.
+  // A stand-in for seed.EXAMPLE: one of its titles is enough for the test.
   http.post("/api/examples", ({ request }) => {
     record(request);
     const ownerId = signedInUser(request);
     if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
-    const added = new Map<string, Task>();
-    for (const [title, waitsFor] of [
-      ["Book the venue", []],
-      ["Confirm guest list", []],
-      ["Send invitations", ["Book the venue", "Confirm guest list"]],
-      ["Seating plan", ["Send invitations"]],
-      ["Renew passport", []],
-      ["Book flights", ["Renew passport"]],
-      ["Order the cake", []],
-    ] as const) {
-      const task = addTask(ownerId, title);
-      db.tasks.get(task.id)!.task.waits_for = waitsFor.map(
-        (name) => added.get(name)!.id,
-      );
-      added.set(title, task);
-    }
+    addTask(ownerId, "Send invitations");
     return HttpResponse.json(listOf(ownerId), { status: 201 });
   }),
   // Without a TYPESAFE_API_KEY the real server answers this; tests that want a category say so.
@@ -402,7 +341,6 @@ export const server = setupServer(
     record(request, { name });
     const ownerId = signedInUser(request);
     if (!ownerId) return fail(401, "AUTH_REQUIRED", "Authentication required");
-    if (nameTaken(ownerId, name.trim())) return exists();
     return HttpResponse.json(addCategory(ownerId, name.trim()), {
       status: 201,
     });
@@ -410,12 +348,8 @@ export const server = setupServer(
   http.patch("/api/categories/:id", async ({ request, params }) => {
     const { name } = (await request.json()) as { name: string };
     record(request, { name });
-    const { ownerId, category, error } = ownCategory(
-      request,
-      String(params.id),
-    );
+    const { category, error } = ownCategory(request, String(params.id));
     if (error) return error;
-    if (nameTaken(ownerId, name.trim(), category.id)) return exists();
     category.name = name.trim();
     return HttpResponse.json({ ...category });
   }),

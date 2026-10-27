@@ -25,7 +25,7 @@ const LingerContext = createContext<Linger>({
 });
 
 /**
- * The 5-second undo windows (spec §5.7). Each tick starts its own timer, so two ticks a few
+ * The 5-second undo windows. Each tick starts its own timer, so two ticks a few
  * seconds apart each get their full five seconds; unticking stops it.
  */
 export function LingerProvider({ children }: { children: ReactNode }) {
@@ -41,11 +41,7 @@ export function LingerProvider({ children }: { children: ReactNode }) {
   const end = (id: string) => {
     clearTimeout(timers.current.get(id));
     timers.current.delete(id);
-    setLingering((current) => {
-      const next = new Set(current);
-      next.delete(id);
-      return next;
-    });
+    setLingering((current) => new Set([...current].filter((x) => x !== id)));
   };
   const value: Linger = {
     lingering,

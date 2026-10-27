@@ -1,16 +1,17 @@
-import { screen, waitFor, within } from "@testing-library/react";
-import { http, HttpResponse } from "msw";
+import { screen, waitFor } from "@testing-library/react";
+import { http } from "msw";
 import { beforeEach, expect, it } from "vitest";
 import type { AuthResult } from "../api.ts";
 import {
   db,
+  fail,
   gate,
   requests,
   seedTasks,
   seedUser,
   server,
 } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import { renderApp, titlesIn } from "../test/render.tsx";
 
 let ada: AuthResult;
 
@@ -18,16 +19,7 @@ beforeEach(() => {
   ada = seedUser();
 });
 
-const exploded = () =>
-  HttpResponse.json(
-    { error: { code: "INTERNAL_ERROR", message: "Server exploded" } },
-    { status: 500 },
-  );
-
-const taskLinks = () =>
-  within(screen.getByRole("list", { name: "Tasks" }))
-    .getAllByRole("link")
-    .map((link) => link.textContent);
+const exploded = () => fail(500, "INTERNAL_ERROR", "Server exploded");
 
 it("shows my tasks in order", async () => {
   const [c, a, b] = seedTasks(ada, ["c", "a", "b"]);
@@ -36,7 +28,7 @@ it("shows my tasks in order", async () => {
   db.tasks.get(b.id)!.task.position = 2;
   renderApp("/tasks", { as: ada });
   await screen.findByRole("link", { name: "a" });
-  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  expect(titlesIn()).toEqual(["a", "b", "c"]);
 });
 
 it("adds a task and clears the input", async () => {
@@ -146,7 +138,7 @@ it("filters as you type, ignoring case and accents", async () => {
   seedTasks(ada, ["Buy milk", "Café run", "Call mom"]);
   const { user } = renderApp("/tasks", { as: ada });
   await user.type(await screen.findByLabelText("Search tasks"), "CAFE");
-  expect(taskLinks()).toEqual(["Café run"]);
+  expect(titlesIn()).toEqual(["Café run"]);
 });
 
 it("says so when nothing matches", async () => {

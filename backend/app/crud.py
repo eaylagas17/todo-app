@@ -3,11 +3,11 @@ import uuid
 from collections import defaultdict
 from datetime import timedelta
 
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
-from app.db import utcnow
+from app.db import Base, utcnow
 from app.errors import (
     CategoryExists,
     CategoryNotFound,
@@ -71,15 +71,14 @@ def list_tasks(db: Session, owner: User) -> list[Task]:
         select(Task)
         .where(Task.owner_id == owner.id)
         .order_by(Task.position, Task.created_at)
-        # All the subtasks in one more query (WHERE task_id IN ...), never one query per task.
+        # One extra query per relationship (WHERE task_id IN ...), never one per task.
         .options(selectinload(Task.subtasks), selectinload(Task.links))
     )
     return list(db.scalars(query))
 
 
-def create_task(db: Session, owner: User, title: str, description: str = "") -> Task:
-    # Two requests at once can read the same MAX and get the same position. The tie is harmless
-    # (created_at orders them); the fix is to lock the owner's row (SELECT ... FOR UPDATE) first.
+def create_task(db: Session, owner: User, title: str, description: str) -> Task:
+    lock_owner(db, owner)  # two at once must not read the same MAX
     top = db.scalar(select(func.max(Task.position)).where(Task.owner_id == owner.id))
     task = Task(
         owner_id=owner.id,
@@ -143,11 +142,7 @@ def update_subtask(db: Session, subtask: Subtask, changes: dict) -> Subtask:
 
 
 def lock_owner(db: Session, owner: User) -> None:
-    """One write at a time per person: a second request waits here until the first commits.
-
-    SELECT ... FOR UPDATE on the user's row. SQLAlchemy leaves FOR UPDATE out on SQLite, which
-    allows only one writer at a time anyway.
-    """
+    # One write at a time per person. SQLite drops FOR UPDATE; it has one writer anyway.
     db.execute(select(User.id).where(User.id == owner.id).with_for_update())
 
 
@@ -174,9 +169,8 @@ def link(db: Session, owner: User, task: Task, depends_on_id: uuid.UUID) -> list
     """ "task waits for depends_on_id". Returns the whole list, in its (possibly repaired) order."""
     if depends_on_id == task.id:
         raise LinkSelf
-    lock_owner(
-        db, owner
-    )  # two opposite links at once must not both pass the loop check
+    # Two opposite links at once must not both pass the loop check.
+    lock_owner(db, owner)
     target = get_task(db, owner, depends_on_id)  # someone else's task is 404
     graph = owner_graph(db, owner)
     if target.id in graph[task.id]:
@@ -192,10 +186,10 @@ def link(db: Session, owner: User, task: Task, depends_on_id: uuid.UUID) -> list
     order = [t.id for t in tasks]
     if breaks_link(order, graph):
         # The task linked to stays put; the waiting task goes just below it, and anything
-        # waiting on it is pushed along by the "down" pass (spec §8.3).
+        # waiting on it is pushed along.
         desired = [i for i in order if i != task.id]
         desired.insert(desired.index(target.id) + 1, task.id)
-        _renumber(tasks, repair(desired, graph, "down"))
+        _renumber(tasks, repair(desired, graph))
     db.commit()
     return list_tasks(db, owner)
 
@@ -210,16 +204,16 @@ def set_order(
     db: Session, owner: User, ids: list[uuid.UUID], previous: list[uuid.UUID]
 ) -> list[Task]:
     """Saves the whole list's order. Checks it; never re-sorts it."""
-    lock_owner(
-        db, owner
-    )  # two saves at once: the second sees the first's order, and is stale
+    # Two saves at once: the second sees the first's order, and is stale.
+    lock_owner(db, owner)
     tasks = list_tasks(db, owner)
-    if len(ids) != len(set(ids)) or set(ids) != {task.id for task in tasks}:
-        raise OrderStale  # a task missing, extra, repeated or someone else's (E43)
-    if previous != [task.id for task in tasks]:
-        raise OrderStale  # the drag started from an order another tab has since changed
+    current = [task.id for task in tasks]
+    # Stale (E43): the drag began from an order another tab has since changed, or a task is
+    # missing, extra, repeated or someone else's.
+    if previous != current or sorted(ids) != sorted(current):
+        raise OrderStale
     if breaks_link(ids, owner_graph(db, owner)):
-        raise OrderBreaksLink  # (E44)
+        raise OrderBreaksLink
     _renumber(tasks, ids)
     db.commit()
     return list_tasks(db, owner)
@@ -265,17 +259,6 @@ def rename_category(db: Session, category: Category, name: str) -> Category:
     return _save_category(db, category)
 
 
-def delete_category(db: Session, category: Category) -> None:
-    # Its tasks become uncategorised first, in code, so SQLite (whose foreign-key actions are
-    # off by default) behaves like Postgres's ON DELETE SET NULL.
-    db.execute(
-        update(Task).where(Task.category_id == category.id).values(category_id=None)
-    )
-    delete(db, category)
-
-
-def delete(
-    db: Session, row: Task | Subtask | Category | TaskLink | UserSession
-) -> None:
+def delete(db: Session, row: Base) -> None:
     db.delete(row)
     db.commit()

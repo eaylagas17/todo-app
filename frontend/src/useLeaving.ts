@@ -1,24 +1,20 @@
 import { useEffect, useState } from "react";
+import { reducedMotion } from "./motion.ts";
 
 /** How long a row takes to close up or open, matching the CSS animations. */
 export const LEAVE_MS = 300;
 
 type Phase = "steady" | "entering" | "leaving";
 
-const reducedMotion = () =>
-  typeof matchMedia === "function" &&
-  matchMedia("(prefers-reduced-motion: reduce)").matches;
-
 /**
- * A list that animates its changes (spec §5.7): an item that disappears stays for LEAVE_MS as
- * "leaving", at the index it had, so its row can close up instead of vanishing; an item that
- * appears is "entering" for LEAVE_MS, so its row opens. Nothing enters on the first render, and
- * nothing animates under reduced motion. Whatever made an item leave (a tick's window ending, a
- * delete, another tab), it's the same mechanism: compare the list with the last one.
+ * A list that animates its changes: an item that disappears stays for LEAVE_MS as "leaving", at
+ * the index it had, so its row can close up instead of vanishing; an item that appears is
+ * "entering" for LEAVE_MS, so its row opens. Nothing enters on the first render, and nothing
+ * animates under reduced motion.
  *
  * Focus: if it was in a row that leaves, it moves to the same task's checkbox elsewhere on the
  * page (it usually just moved to Recently completed), else to the next row's, else to the
- * search box; it never falls to the page. O(V) per change.
+ * search box; it never falls to the page.
  */
 export function useLeaving<T extends { id: string }>(
   items: readonly T[],
@@ -74,7 +70,6 @@ export function useLeaving<T extends { id: string }>(
       checkbox(refocus.next) ??
       document.querySelector<HTMLElement>('input[type="search"]')
     )?.focus();
-    setRefocus(undefined);
   }, [refocus]);
 
   const result: { item: T; phase: Phase }[] = items.map((item) => ({

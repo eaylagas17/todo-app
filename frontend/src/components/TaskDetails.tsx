@@ -16,7 +16,7 @@ import { TaskLinks } from "./TaskLinks.tsx";
 
 type Props = {
   task: Task;
-  refreshError: Error | null;
+  refreshError?: Error | null;
   onDeleted: () => void;
 };
 
@@ -110,7 +110,7 @@ export function TaskDetails({ task, refreshError, onDeleted }: Props) {
             onChange={(event) => {
               const completed = event.target.checked;
               toggle.mutate({ id: task.id, completed });
-              // The same 5-second window as the row's circle (spec §5.7).
+              // The same 5-second window as the row's circle.
               if (completed) linger.start(task.id);
               else linger.stop(task.id);
             }}

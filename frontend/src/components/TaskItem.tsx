@@ -9,7 +9,7 @@ import {
 } from "../queries.ts";
 import { formatDay, type LinkInfo, subtaskProgress } from "../tasks.ts";
 import { useLinger } from "../useLinger.tsx";
-import { useLinkDrag } from "../useLinkDrag.ts";
+import { useLinkDrag } from "../useLinkDrag.tsx";
 
 type Props = {
   task: Task;
@@ -21,8 +21,8 @@ type Props = {
   lift?: "lifted" | "swept";
   /** A row in a completed list: when it was done and added, instead of the preview. */
   done?: boolean;
-  /** Opening into its list, or closing up on its way out (spec §5.7). */
-  phase?: "entering" | "leaving";
+  /** Opening into its list, or closing up on its way out. */
+  phase?: "steady" | "entering" | "leaving";
   /** Ticked, and leaves the list when its 5-second window ends: show the draining bar. */
   leavingSoon?: boolean;
   /** Kept on screen by a drag after it left the list (it may already show elsewhere). */
@@ -134,8 +134,8 @@ export function TaskItem({
         {(preview || progress || link) && (
           <span className="sub">
             {link && <span className="chain" aria-hidden="true" />}
-            {preview && <span className="preview">{preview}</span>}
-            {progress && <span className="progress">{progress}</span>}
+            {preview && <span>{preview}</span>}
+            {progress && <span>{progress}</span>}
           </span>
         )}
         {category && <span className="category">{category.name}</span>}

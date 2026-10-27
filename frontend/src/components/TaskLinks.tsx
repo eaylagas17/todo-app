@@ -1,7 +1,7 @@
 import type { Task } from "../api.ts";
 import { useLink, useTasks, useUnlink } from "../queries.ts";
 
-/** "Waits for" and "Needed by" for one task: the keyboard and phone way to link (spec §8.1). */
+/** "Waits for" and "Needed by" for one task: the keyboard and phone way to link. */
 export function TaskLinks({ task }: { task: Task }) {
   const tasks = useTasks();
   const link = useLink();

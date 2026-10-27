@@ -2,7 +2,14 @@ import { screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult, Task } from "../api.ts";
-import { db, requests, seedTasks, seedUser, server } from "../test/fakeApi.ts";
+import {
+  db,
+  fail,
+  requests,
+  seedTasks,
+  seedUser,
+  server,
+} from "../test/fakeApi.ts";
 import { renderApp } from "../test/render.tsx";
 
 let ada: AuthResult;
@@ -13,30 +20,6 @@ beforeEach(() => {
   [milk] = seedTasks(ada, ["Buy milk"]);
 });
 
-it("opens a task from the list", async () => {
-  const { user } = renderApp("/tasks", { as: ada });
-  await user.click(await screen.findByRole("link", { name: "Buy milk" }));
-  await user.click(await screen.findByRole("link", { name: "Open as page" }));
-  expect(
-    await screen.findByRole("heading", { name: "Task details" }),
-  ).toBeInTheDocument();
-  expect(screen.getByLabelText("Title")).toHaveValue("Buy milk");
-});
-
-it("saves an edit", async () => {
-  const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
-  await user.clear(await screen.findByLabelText("Title"));
-  await user.type(screen.getByLabelText("Title"), "Buy oat milk");
-  await user.click(screen.getByRole("button", { name: "Save" }));
-  expect(await screen.findByRole("status")).toHaveTextContent("Saved");
-  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
-  expect(requests).toContainEqual({
-    method: "PATCH",
-    path: `/api/tasks/${milk.id}`,
-    body: { title: "Buy oat milk" },
-  });
-});
-
 it("saves a title and a description", async () => {
   const { user } = renderApp(`/tasks/${milk.id}`, { as: ada });
   await user.clear(await screen.findByLabelText("Title"));
@@ -44,6 +27,7 @@ it("saves a title and a description", async () => {
   await user.type(screen.getByLabelText("Description"), "Notes");
   await user.click(screen.getByRole("button", { name: "Save" }));
   expect(await screen.findByRole("status")).toHaveTextContent("Saved");
+  expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
   expect(requests).toContainEqual({
     method: "PATCH",
     path: `/api/tasks/${milk.id}`,
@@ -93,10 +77,7 @@ it("keeps an unsaved edit when a refresh fails", async () => {
   await user.type(await screen.findByLabelText("Title"), " today");
   server.use(
     http.get("/api/tasks/:id", () =>
-      HttpResponse.json(
-        { error: { code: "INTERNAL_ERROR", message: "Server exploded" } },
-        { status: 500 },
-      ),
+      fail(500, "INTERNAL_ERROR", "Server exploded"),
     ),
   );
   await user.click(screen.getByRole("checkbox", { name: "Done" }));

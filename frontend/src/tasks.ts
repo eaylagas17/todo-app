@@ -38,20 +38,12 @@ export const allOf =
   (item: T): boolean =>
     tests.every((test) => test(item));
 
-/** Each task's prerequisites, by id: the shape `sweep` reads links in. */
-export const waitsForMap = (tasks: readonly Task[]): Record<string, string[]> =>
-  Object.fromEntries(tasks.map((task) => [task.id, task.waits_for]));
-
 /**
- * The snowball (spec §5.2): the dragged task lands at `slot`, its index in the result. Going
- * down, a task that waits for anything in the moving block joins it when the block reaches it,
- * and travels right behind; going up is the mirror image, with prerequisites joining on top.
- * Everything else keeps its relative order and flows around the block. If the block can't fit
- * (a wall), the dragged task stops short of `slot`, like a pushed stack.
- *
- * One walk over the other tasks, filling the `room` slots before the block. O(V + E) time, O(V)
- * space. Every link holds: the original order kept them all, relative order is preserved, and the
- * block only overtakes tasks that aren't linked to it.
+ * The snowball: the dragged task lands at `slot`, its index in the result. Going down, a task
+ * that waits for anything in the moving block joins it when the block reaches it, and travels
+ * right behind; going up is the mirror image, with prerequisites joining on top. Everything else
+ * keeps its relative order. If the block can't fit (a wall), the dragged task stops short of
+ * `slot`, like a pushed stack. One walk over the other tasks: O(V + E).
  */
 export function sweep(
   order: readonly string[],
@@ -145,13 +137,9 @@ function presentLinks(tasks: readonly Task[]) {
 }
 
 /**
- * Linked tasks form groups (connected components, links taken both ways), found by
- * breadth-first search. Groups are numbered by first appearance in the list.
- *
- * Colours are handed out by age (spec §5.5): the group whose oldest task is oldest gets the first
- * colour, the next the second, and so on (ids are UUIDv7, so the smallest id is the oldest). Up
- * to six chains always differ, and dragging never recolours one, because age doesn't change with
- * order. A chain's colour shifts only when an older chain appears or goes.
+ * Linked tasks form groups (connected components, by breadth-first search), numbered by first
+ * appearance. Hues go by age: the group with the oldest task (the smallest UUIDv7) gets the
+ * first, so dragging never recolours a chain.
  */
 export function linkGroups(
   tasks: readonly Task[],
@@ -178,7 +166,6 @@ export function linkGroups(
     for (const member of members) groupOf.set(member, oldest.length);
     oldest.push(members.reduce((a, b) => (b < a ? b : a)));
   }
-  // Rank the groups by their oldest task: O(G log G) for G groups.
   const byAge = oldest
     .map((_, g) => g)
     .sort((a, b) => (oldest[a] < oldest[b] ? -1 : 1));
@@ -247,32 +234,25 @@ export function linkInfo(tasks: readonly Task[]): Map<string, LinkInfo> {
   return info;
 }
 
-/** How many completed tasks show under the list (spec §5.7). */
+/** How many completed tasks show under the list. */
 export const RECENT_LIMIT = 5;
 
 /**
- * The tasks in the main list (spec §5.7), in order: every open task; a completed one while its
- * chain (its link group) is unfinished; and any task inside its 5-second undo window, or whose
- * chain has a task in it, so a finished chain leaves all together. A finished chain has no link
- * to anything that stays, which is what makes hiding it safe for dragging (mergeOrder).
- * One linkGroups call: O(V + E).
+ * The main list: open tasks, tasks in their undo window, and the rest of any chain holding one,
+ * so a finished chain leaves together. What leaves is never linked to what stays, which makes
+ * hiding it safe for dragging (mergeOrder). O(V + E).
  */
 export function inMainList(
   tasks: readonly Task[],
   lingering: ReadonlySet<string>,
 ): Task[] {
   const groups = linkGroups(tasks);
+  const chain = (t: Task) => groups.get(t.id)?.group;
   const stays = (t: Task) => !t.completed || lingering.has(t.id);
-  // The chains that stay: any member open, or in its window.
-  const held = new Set<number>();
-  for (const t of tasks) {
-    const chain = groups.get(t.id);
-    if (chain && stays(t)) held.add(chain.group);
-  }
-  return tasks.filter((t) => {
-    const chain = groups.get(t.id);
-    return stays(t) || (chain !== undefined && held.has(chain.group));
-  });
+  const held = new Set(tasks.filter(stays).map(chain));
+  return tasks.filter(
+    (t) => stays(t) || (chain(t) !== undefined && held.has(chain(t))),
+  );
 }
 
 /** Completed tasks, the most recently completed first. Compared as times, not text: the server

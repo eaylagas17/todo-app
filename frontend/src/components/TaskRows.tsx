@@ -34,7 +34,7 @@ export function TaskRows({
           task={item}
           link={links?.get(item.id)}
           done={done}
-          phase={phase === "steady" ? undefined : phase}
+          phase={phase}
           leavingSoon={leavingSoon?.has(item.id)}
         />
       ))}

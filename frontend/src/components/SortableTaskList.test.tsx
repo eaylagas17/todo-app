@@ -1,8 +1,14 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { beforeEach, expect, it, vi } from "vitest";
 import type { AuthResult } from "../api.ts";
-import { db, requests, seedTasks, seedUser } from "../test/fakeApi.ts";
-import { renderApp } from "../test/render.tsx";
+import {
+  db,
+  requests,
+  savedOrder,
+  seedTasks,
+  seedUser,
+} from "../test/fakeApi.ts";
+import { advance, renderApp, row, titlesIn } from "../test/render.tsx";
 import { LEAVE_MS } from "../useLeaving.ts";
 import { LINGER_MS } from "../useLinger.tsx";
 
@@ -12,14 +18,6 @@ beforeEach(() => {
   ada = seedUser();
 });
 
-const taskLinks = () =>
-  [
-    ...screen.getByRole("list", { name: "Tasks" }).querySelectorAll(".title"),
-  ].map((title) => title.textContent);
-const row = (title: string) =>
-  screen
-    .getAllByRole("listitem")
-    .find((item) => item.querySelector(".title")?.textContent === title)!;
 const handle = (title: string) =>
   screen.findByRole("button", { name: `Reorder ${title}` });
 const announced = () => screen.getByRole("status");
@@ -68,7 +66,6 @@ it("hides drag handles while searching", async () => {
 });
 
 it("moves a task with the keyboard", async () => {
-  layOutRows();
   const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await handle("a")).focus();
@@ -80,19 +77,11 @@ it("moves a task with the keyboard", async () => {
   );
   await user.keyboard("[Space]");
   await waitFor(() => expect(announced()).toHaveTextContent("a was moved."));
-  await waitFor(() => expect(taskLinks()).toEqual(["b", "a", "c"]));
-  // The whole list is saved in its new order.
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
-    }),
-  );
+  await waitFor(() => expect(titlesIn()).toEqual(["b", "a", "c"]));
+  await savedOrder([b, a, c], [a, b, c]);
 });
 
 it("says nothing moved when a task is dropped where it started", async () => {
-  layOutRows();
   seedTasks(ada, ["a", "b"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await handle("a")).focus();
@@ -106,7 +95,6 @@ it("says nothing moved when a task is dropped where it started", async () => {
 });
 
 it("Escape cancels a keyboard drag", async () => {
-  layOutRows();
   seedTasks(ada, ["a", "b", "c"]);
   const { user } = renderApp("/tasks", { as: ada });
   (await handle("a")).focus();
@@ -118,24 +106,23 @@ it("Escape cancels a keyboard drag", async () => {
   await waitFor(() =>
     expect(announced()).toHaveTextContent("Moving a was cancelled."),
   );
-  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  expect(titlesIn()).toEqual(["a", "b", "c"]);
   expect(puts()).toEqual([]);
 });
 
-it("drags with the pointer and saves what it showed", async () => {
+it("drags with the pointer, keeps the rows where it showed them, and saves that order", async () => {
   layOutRows();
   const [a, b, c] = seedTasks(ada, ["a", "b", "c"]);
   renderApp("/tasks", { as: ada });
   const grip = await pointerDrag("a", 20, 125);
   fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: { ids: [b.id, c.id, a.id], previous: [a.id, b.id, c.id] },
-    }),
-  );
-  await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
+  // The cache gets the new order a moment later (the optimistic update awaits): until then the
+  // rows stay drawn where the drag left them, instead of snapping back to where it started.
+  if (titlesIn().join() === "a,b,c")
+    expect(row("a").style.transform).toBe("translateY(100px)");
+  await savedOrder([b, c, a], [a, b, c]);
+  await waitFor(() => expect(titlesIn()).toEqual(["b", "c", "a"]));
+  await waitFor(() => expect(row("a").style.transform).toBe(""));
 });
 
 it("keeps the dragged row inside the list", async () => {
@@ -162,18 +149,9 @@ it("brings the tasks it reaches while dragging", async () => {
   expect(row("Book the venue")).toHaveClass("lifted");
   expect(announced().textContent).toMatch(/Send invitations moves with it\.$/);
   fireEvent.pointerUp(grip, { clientY: 140, pointerId: 1 });
+  await savedOrder([cake, venue, invites], [venue, invites, cake]);
   await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: {
-        ids: [cake.id, venue.id, invites.id],
-        previous: [venue.id, invites.id, cake.id],
-      },
-    }),
-  );
-  await waitFor(() =>
-    expect(taskLinks()).toEqual([
+    expect(titlesIn()).toEqual([
       "Order the cake",
       "Book the venue",
       "Send invitations",
@@ -208,27 +186,7 @@ it("drags past a taller row by its middle", async () => {
   fireEvent.pointerMove(grip, { clientY: 80, pointerId: 1 });
   expect(row("b").style.transform).toBe("translateY(-50px)");
   fireEvent.pointerUp(grip, { clientY: 80, pointerId: 1 });
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
-    }),
-  );
-});
-
-it("keeps the dropped rows where the drag showed them until the new order is in", async () => {
-  layOutRows();
-  seedTasks(ada, ["a", "b", "c"]);
-  renderApp("/tasks", { as: ada });
-  const grip = await pointerDrag("a", 20, 125);
-  fireEvent.pointerUp(grip, { clientY: 125, pointerId: 1 });
-  // The cache gets the new order a moment later (the optimistic update awaits): until then the
-  // rows stay drawn where the drag left them, instead of snapping back to where it started.
-  if (taskLinks().join() === "a,b,c")
-    expect(row("a").style.transform).toBe("translateY(100px)");
-  await waitFor(() => expect(taskLinks()).toEqual(["b", "c", "a"]));
-  await waitFor(() => expect(row("a").style.transform).toBe(""));
+  await savedOrder([b, a, c], [a, b, c]);
 });
 
 it("a row leaving the list mid-drag waits until the drop", async () => {
@@ -240,10 +198,8 @@ it("a row leaving the list mid-drag waits until the drop", async () => {
   expect(row("a").style.transform).toBe("translateY(40px)");
   // c's 5-second window ends mid-drag: the rows the drag measured stay put, so nothing shifts
   // under the pointer.
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(LINGER_MS + LEAVE_MS + 100);
-  });
-  expect(taskLinks()).toEqual(["a", "b", "c"]);
+  await advance(LINGER_MS + LEAVE_MS + 100);
+  expect(titlesIn()).toEqual(["a", "b", "c"]);
   expect(
     screen.getByRole("list", { name: "Tasks" }).querySelector("li.closing"),
   ).toBeNull();
@@ -255,18 +211,10 @@ it("a row leaving the list mid-drag waits until the drop", async () => {
     .filter(Boolean);
   expect(new Set(names).size).toBe(names.length);
   fireEvent.pointerUp(grip, { clientY: 60, pointerId: 1 });
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: { ids: [b.id, a.id, c.id], previous: [a.id, b.id, c.id] },
-    }),
-  );
+  await savedOrder([b, a, c], [a, b, c]);
   // After the drop, c leaves as it should.
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(LEAVE_MS + 100);
-  });
-  expect(taskLinks()).toEqual(["b", "a"]);
+  await advance(LEAVE_MS + 100);
+  expect(titlesIn()).toEqual(["b", "a"]);
 });
 
 it("a tall task travelling with the dragged one counts as part of the group", async () => {
@@ -281,38 +229,13 @@ it("a tall task travelling with the dragged one counts as part of the group", as
   const grip = await pointerDrag("a", 20, 100);
   expect(row("d").style.transform).toBe("translateY(-150px)");
   fireEvent.pointerUp(grip, { clientY: 100, pointerId: 1 });
-  await waitFor(() =>
-    expect(requests).toContainEqual({
-      method: "PUT",
-      path: "/api/task-order",
-      body: {
-        ids: [c.id, d.id, a.id, b.id],
-        previous: [a.id, b.id, c.id, d.id],
-      },
-    }),
-  );
+  await savedOrder([c, d, a, b], [a, b, c, d]);
 });
 
 it("the handle captures the pointer, so a release outside the window still ends the drag", async () => {
-  const capture = vi.fn();
-  const original = Object.getOwnPropertyDescriptor(
-    Element.prototype,
-    "setPointerCapture",
-  );
-  Object.defineProperty(Element.prototype, "setPointerCapture", {
-    value: capture,
-    configurable: true,
-  });
-  try {
-    seedTasks(ada, ["a", "b"]);
-    renderApp("/tasks", { as: ada });
-    fireEvent.pointerDown(await handle("a"), { clientY: 20, pointerId: 7 });
-    expect(capture).toHaveBeenCalledWith(7);
-  } finally {
-    if (original)
-      Object.defineProperty(Element.prototype, "setPointerCapture", original);
-    else
-      delete (Element.prototype as { setPointerCapture?: unknown })
-        .setPointerCapture;
-  }
+  const capture = vi.spyOn(Element.prototype, "setPointerCapture");
+  seedTasks(ada, ["a", "b"]);
+  renderApp("/tasks", { as: ada });
+  fireEvent.pointerDown(await handle("a"), { clientY: 20, pointerId: 7 });
+  expect(capture).toHaveBeenCalledWith(7);
 });

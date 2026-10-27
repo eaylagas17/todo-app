@@ -42,10 +42,10 @@ type Options = {
 };
 
 /**
- * Drag to reorder, with the snowball (spec §5.1, §5.2): the dragged row follows the pointer
- * inside the list, the others glide out of its way (CSS transitions on their transforms), and the
- * linked tasks it reaches travel with it. The DOM keeps the start order until the drop, so only
- * transforms move during a drag. The keyboard does the same one slot at a time.
+ * Drag to reorder, with the snowball: the dragged row follows the pointer inside the list, the
+ * others glide out of its way (CSS transitions on their transforms), and the linked tasks it
+ * reaches travel with it. The DOM keeps the start order until the drop, so only transforms move
+ * during a drag. The keyboard does the same, one slot at a time.
  */
 export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
   const rows = useRef(new Map<string, HTMLLIElement>());
@@ -58,10 +58,8 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
   // Leaving the page mid-drag drops the window listeners.
   useEffect(() => () => stopPointer.current(), []);
 
-  // After a drop, the preview stays drawn until the list holds the new order (the optimistic
-  // update writes it a moment later); otherwise the rows would snap back to where the drag began
-  // and glide forward again. The list calls release() when it sees the new order. Should it
-  // never come (an error before the update), stop drawing the preview after a second.
+  // After a drop the preview stays drawn until the list holds the new order (release()), so the
+  // rows don't snap back first; if that never comes, stop after a second.
   useEffect(() => {
     if (!drag?.dropped) return;
     const giveUp = setTimeout(() => setDrag(null), 1000);
@@ -129,7 +127,7 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
     const inside = Math.min(Math.max(top, 0), d.listHeight - height(d.active));
     let { block } = d.preview;
     let slot = d.slot;
-    // ponytail: up to 3 settling rounds, each O(V + E); a group only grows by what it reaches
+    // At most 3 settling rounds, each O(V + E): a group only grows by what it reaches.
     for (let round = 0; round < 3; round++) {
       const members = new Set(block);
       const above = block.slice(0, block.indexOf(d.active));
@@ -144,14 +142,11 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
   }
 
   function finish(d: Drag) {
-    const moved = d.preview.order.some((id, i) => id !== d.start[i]);
+    if (d.preview.order.every((id, i) => id === d.start[i])) return cancel(d);
     const others = d.preview.block.filter((id) => id !== d.active).map(titleOf);
     setAnnouncement(
-      moved
-        ? `${titleOf(d.active)} was moved.${others.length ? ` ${others.join(", ")} moved with it.` : ""}`
-        : `Moving ${titleOf(d.active)} was cancelled.`,
+      `${titleOf(d.active)} was moved.${others.length ? ` ${others.join(", ")} moved with it.` : ""}`,
     );
-    if (!moved) return show(null);
     current.current = null;
     setDrag({ ...d, dropped: true });
     onDrop(d.preview.order);
@@ -187,24 +182,18 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
         }
         show(follow(d, d.tops.get(id)! + dy));
       };
-      // While the finger is near the window's edge, scroll a little every frame.
+      // While the finger is near the window's edge, scroll a little every frame; when the page
+      // moved, the list moved under the finger, so re-apply.
       const scroll = () => {
-        const page = document.scrollingElement;
         const edge =
           clientY < EDGE_PX
             ? -SCROLL_PX
             : clientY > innerHeight - EDGE_PX
               ? SCROLL_PX
               : 0;
-        if (
-          current.current &&
-          edge &&
-          page &&
-          page.scrollHeight > innerHeight
-        ) {
-          window.scrollBy(0, edge);
-          apply();
-        }
+        const before = scrollY;
+        if (current.current && edge) scrollBy(0, edge);
+        if (scrollY !== before) apply();
         frame = requestAnimationFrame(scroll);
       };
       const move = (e: PointerEvent) => {
@@ -217,28 +206,29 @@ export function useSnowballDrag({ ids, waitsFor, titleOf, onDrop }: Options) {
         stop();
         if (current.current) finish(current.current);
       };
-      const lost = (e: PointerEvent) => {
-        if (e.pointerId !== pointerId) return;
+      const abort = () => {
         stop();
         if (current.current) cancel(current.current);
       };
-      const escape = (e: KeyboardEvent) => {
-        if (e.key !== "Escape") return;
-        stop();
-        if (current.current) cancel(current.current);
-      };
+      // One controller removes every listener at once.
+      const listeners = new AbortController();
+      const on = { signal: listeners.signal };
       function stop() {
         cancelAnimationFrame(frame);
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", up);
-        window.removeEventListener("pointercancel", lost);
-        window.removeEventListener("keydown", escape);
-        stopPointer.current = () => {};
+        listeners.abort();
       }
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", up);
-      window.addEventListener("pointercancel", lost);
-      window.addEventListener("keydown", escape);
+      window.addEventListener("pointermove", move, on);
+      window.addEventListener("pointerup", up, on);
+      window.addEventListener(
+        "pointercancel",
+        (e) => e.pointerId === pointerId && abort(),
+        on,
+      );
+      window.addEventListener(
+        "keydown",
+        (e) => e.key === "Escape" && abort(),
+        on,
+      );
       stopPointer.current = stop;
       frame = requestAnimationFrame(scroll);
     },

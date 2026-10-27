@@ -35,11 +35,11 @@ export function TaskListPage() {
   const open = tasks.data?.find((task) => task.id === openId);
   const categories = useCategories();
   const wanted = params.get("category");
-  // A filter on a category that no longer exists falls back to All (Review Focus 4).
+  // A filter on a category that no longer exists falls back to All.
   const category = categories.data?.some((c) => c.id === wanted)
     ? wanted
     : null;
-  // The Completed page (spec §5.7) is this page in another mode, so the panel and search work
+  // The Completed page is this page in another mode, so the panel and search work
   // the same: /tasks?list=completed.
   const showingCompleted = params.get("list") === "completed";
 
@@ -156,12 +156,7 @@ export function TaskListPage() {
             {open && (
               <>
                 {/* Keyed by task: switching tasks starts its editor afresh. */}
-                <TaskDetails
-                  key={open.id}
-                  task={open}
-                  refreshError={null}
-                  onDeleted={closePanel}
-                />
+                <TaskDetails key={open.id} task={open} onDeleted={closePanel} />
                 <Link to={`/tasks/${open.id}`} className="open-page">
                   Open as page
                 </Link>
@@ -225,9 +220,10 @@ function TaskList({
     );
   }
   // Derived, not stored: the main list, the visible part and Recently completed are all
-  // recomputed from the cache, the undo windows and the query (spec §5.7).
+  // recomputed from the cache, the undo windows and the query.
   const main = inMainList(all, lingering);
   const inMain = new Set(main.map((task) => task.id));
+  // Function composition: one predicate made of the search and the category filter.
   const filter = allOf(matchesSearch(query), inCategory(category));
   const visible = main.filter(filter);
   // A lingering task that leaves when its window ends gets the draining bar; one whose chain is

@@ -12,7 +12,7 @@ import { Link, useSearchParams } from "react-router";
 import type { Task } from "../api.ts";
 import { useCategories, useLink, useToggleSubtask } from "../queries.ts";
 import { linkInfo, subtaskProgress } from "../tasks.ts";
-import { useLinkDrag } from "../useLinkDrag.ts";
+import { useLinkDrag } from "../useLinkDrag.tsx";
 import { layoutGraph } from "./layout.ts";
 
 const MIN_ZOOM = 0.5;
@@ -27,7 +27,7 @@ type Props = {
   all: Task[];
 };
 
-/** The same tasks as the list, drawn as steps from left to right (spec §10). */
+/** The same tasks as the list, drawn as steps from left to right. */
 export function GraphView({ tasks, all }: Props) {
   const [folded, setFolded] = useState<ReadonlySet<string>>(new Set());
   const [zoom, setZoom] = useState(1);
@@ -268,17 +268,14 @@ function usePanAndZoom(
       pinchFrom = 0;
     };
 
-    box.addEventListener("wheel", wheel, { passive: false });
-    box.addEventListener("pointerdown", down);
-    box.addEventListener("pointermove", move);
-    box.addEventListener("pointerup", up);
-    box.addEventListener("pointercancel", up);
-    return () => {
-      box.removeEventListener("wheel", wheel);
-      box.removeEventListener("pointerdown", down);
-      box.removeEventListener("pointermove", move);
-      box.removeEventListener("pointerup", up);
-      box.removeEventListener("pointercancel", up);
-    };
+    // One controller removes every listener when the graph goes.
+    const listeners = new AbortController();
+    const { signal } = listeners;
+    box.addEventListener("wheel", wheel, { passive: false, signal });
+    box.addEventListener("pointerdown", down, { signal });
+    box.addEventListener("pointermove", move, { signal });
+    box.addEventListener("pointerup", up, { signal });
+    box.addEventListener("pointercancel", up, { signal });
+    return () => listeners.abort();
   }, [scroller, setZoom]);
 }

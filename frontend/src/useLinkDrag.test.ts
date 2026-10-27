@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { arrowPath } from "./useLinkDrag.ts";
+import { arrowPath } from "./useLinkDrag.tsx";
 
 it("draws a straight line with an arrowhead at the pointer", () =>
   // The head: two 10px strokes at ±28° back from the tip, rounded to one decimal.

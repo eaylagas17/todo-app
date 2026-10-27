@@ -11,7 +11,7 @@ type Props = {
   tasks: Task[];
   categories: Category[];
   selected: string | null;
-  /** The Completed page is showing (spec §5.7). */
+  /** The Completed page is showing. */
   showingCompleted: boolean;
 };
 
@@ -31,8 +31,7 @@ export function CategorySidebar({
   const [name, setName] = useState("");
   const create = useCreateCategory();
 
-  // One pass over the tasks, then a lookup per category: O(n + c), not O(n · c). Open tasks
-  // only: a completed task is counted under Completed instead.
+  // Open tasks only: a completed task counts under Completed.
   const counts = new Map<string | null, number>();
   let openCount = 0;
   let doneCount = 0;
@@ -43,18 +42,12 @@ export function CategorySidebar({
       counts.set(task.category_id, (counts.get(task.category_id) ?? 0) + 1);
     }
 
-  // Changes only ?category (and leaves the Completed page), so an open task or a view stays.
-  const filterTo = (id: string | null) => {
-    const next = new URLSearchParams(params);
-    next.delete("list");
-    if (id) next.set("category", id);
-    else next.delete("category");
-    return { search: next.toString() };
-  };
-  const completedPage = () => {
+  // One selection at a time (All, a category, or Completed); an open task or a view stays.
+  const to = (key?: "category" | "list", value = "") => {
     const next = new URLSearchParams(params);
     next.delete("category");
-    next.set("list", "completed");
+    next.delete("list");
+    if (key) next.set(key, value);
     return { search: next.toString() };
   };
 
@@ -79,7 +72,7 @@ export function CategorySidebar({
       <ul>
         <li>
           <Link
-            to={filterTo(null)}
+            to={to()}
             aria-current={
               selected === null && !showingCompleted ? "page" : undefined
             }
@@ -93,7 +86,7 @@ export function CategorySidebar({
               <EditRow category={category} />
             ) : (
               <Link
-                to={filterTo(category.id)}
+                to={to("category", category.id)}
                 aria-current={selected === category.id ? "page" : undefined}
               >
                 <span>{category.name}</span>{" "}
@@ -104,7 +97,7 @@ export function CategorySidebar({
         ))}
         <li className="completed-entry">
           <Link
-            to={completedPage()}
+            to={to("list", "completed")}
             aria-current={showingCompleted ? "page" : undefined}
           >
             <span>Completed</span> <span className="count">{doneCount}</span>
@@ -138,6 +131,7 @@ function EditRow({ category }: { category: Category }) {
   const [name, setName] = useState(category.name);
   const rename = useRenameCategory();
   const remove = useDeleteCategory();
+  const error = rename.error ?? remove.error;
   const trimmed = name.trim();
 
   function save(event: FormEvent) {
@@ -169,9 +163,7 @@ function EditRow({ category }: { category: Category }) {
           Delete
         </button>
       </form>
-      {(rename.error ?? remove.error) && (
-        <p role="alert">{(rename.error ?? remove.error)?.message}</p>
-      )}
+      {error && <p role="alert">{error.message}</p>}
     </>
   );
 }

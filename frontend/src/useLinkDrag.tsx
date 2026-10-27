@@ -1,8 +1,4 @@
-import {
-  createElement,
-  type PointerEvent as ReactPointerEvent,
-  useState,
-} from "react";
+import { type PointerEvent as ReactPointerEvent, useState } from "react";
 import { createPortal } from "react-dom";
 
 type Point = { x: number; y: number };
@@ -12,11 +8,7 @@ const HEAD = 10;
 const SPREAD = (28 * Math.PI) / 180;
 const round = (v: number) => Math.round(v * 10) / 10;
 
-/**
- * The arrow from the dot to the pointer, as two SVG paths: the line (dashed, its dashes march)
- * and the head at the pointer (solid). The head's strokes point back along the line: the line's
- * angle, turned half a circle, then ±28°.
- */
+/** The arrow from the dot to the pointer: the line (its dashes march) and a solid head. */
 export function arrowPath(
   from: Point,
   to: Point,
@@ -33,12 +25,8 @@ export function arrowPath(
 }
 
 /**
- * Linking by drag: press the dot on a task's edge, release over another task. The task you
- * drag from waits for the task you drop on. Pointer events cover mouse, touch and pen; the
- * drop target is whatever row or node is under the pointer, found by its data-task-id.
- *
- * While the pointer is down, an arrow runs from the dot to the pointer and the task under it is
- * outlined, so you can see what you're connecting (spec §5.4). Releasing anywhere removes both.
+ * Linking by drag: press a task's dot, release over another task; the first waits for the
+ * second. While the pointer is down, an arrow follows it and the task under it is outlined.
  */
 export function useLinkDrag(onLink: (fromId: string, toId: string) => void) {
   const [drag, setDrag] = useState<{
@@ -74,20 +62,9 @@ export function useLinkDrag(onLink: (fromId: string, toId: string) => void) {
         shown?.classList.add("link-target");
         target = shown;
       };
-      const second = (other: PointerEvent) => {
-        if (other.pointerId !== event.pointerId) pinching = true;
-      };
-      const move = (e: PointerEvent) => {
-        if (e.pointerId !== event.pointerId) return;
-        setDrag({ fromId: taskId, from, to: { x: e.clientX, y: e.clientY } });
-        outline(under(e));
-      };
       const end = (e: PointerEvent) => {
         if (e.pointerId !== event.pointerId) return;
-        window.removeEventListener("pointerdown", second);
-        window.removeEventListener("pointermove", move);
-        window.removeEventListener("pointerup", end);
-        window.removeEventListener("pointercancel", end);
+        listeners.abort();
         document.body.classList.remove("linking");
         outline(null);
         setDrag(null);
@@ -95,10 +72,26 @@ export function useLinkDrag(onLink: (fromId: string, toId: string) => void) {
         const toId = under(e)?.dataset.taskId;
         if (toId && toId !== taskId) onLink(taskId, toId);
       };
-      window.addEventListener("pointerdown", second);
-      window.addEventListener("pointermove", move);
-      window.addEventListener("pointerup", end);
-      window.addEventListener("pointercancel", end);
+      const listeners = new AbortController();
+      const on = { signal: listeners.signal };
+      window.addEventListener(
+        "pointerdown",
+        (other) => {
+          if (other.pointerId !== event.pointerId) pinching = true;
+        },
+        on,
+      );
+      window.addEventListener(
+        "pointermove",
+        (e) => {
+          if (e.pointerId !== event.pointerId) return;
+          setDrag({ fromId: taskId, from, to: { x: e.clientX, y: e.clientY } });
+          outline(under(e));
+        },
+        on,
+      );
+      window.addEventListener("pointerup", end, on);
+      window.addEventListener("pointercancel", end, on);
     },
   });
 
@@ -108,12 +101,10 @@ export function useLinkDrag(onLink: (fromId: string, toId: string) => void) {
   const arrow =
     path &&
     createPortal(
-      createElement(
-        "svg",
-        { className: "link-arrow", "aria-hidden": true },
-        createElement("path", { className: "line", d: path.line }),
-        createElement("path", { className: "head", d: path.head }),
-      ),
+      <svg className="link-arrow" aria-hidden="true">
+        <path className="line" d={path.line} />
+        <path className="head" d={path.head} />
+      </svg>,
       document.body,
     );
   return { dotProps, arrow };

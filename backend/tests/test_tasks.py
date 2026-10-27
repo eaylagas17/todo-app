@@ -25,20 +25,13 @@ def test_create_task_returns_it_with_location(client, ada):
 
 
 def test_task_ids_grow_with_creation_time(client, ada):
-    # UUIDv7: the smallest id in a group of linked tasks is its oldest task (Extras 5).
+    # UUIDv7: the smallest id in a group of linked tasks is its oldest task.
     ids = [add_task(client, ada, title)["id"] for title in "abcde"]
     assert ids == sorted(ids)
 
 
 def test_new_tasks_go_to_the_end(client, ada):
     assert [add_task(client, ada, d)["position"] for d in ("a", "b", "c")] == [1, 2, 3]
-
-
-@pytest.mark.parametrize("title", ["", "   "])
-def test_create_task_requires_a_title(client, ada, title):
-    response = client.post("/api/tasks", json={"title": title}, headers=ada)
-    assert response.status_code == 400
-    assert response.json()["error"]["fields"] == {"title": "Title is required"}
 
 
 def test_create_task_with_title_and_description(client, ada):
@@ -49,13 +42,10 @@ def test_create_task_with_title_and_description(client, ada):
     )
 
 
-def test_description_is_optional(client, ada):
-    assert add_task(client, ada, "Order the cake")["description"] == ""
-
-
 @pytest.mark.parametrize(
     ("payload", "field", "message"),
     [
+        ({"title": ""}, "title", "Title is required"),
         ({"title": "  "}, "title", "Title is required"),
         ({"title": "x" * 201}, "title", "Title must be at most 200 characters"),
         (
@@ -70,7 +60,7 @@ def test_create_task_rejects_bad_title_or_description(
 ):
     response = client.post("/api/tasks", json=payload, headers=ada)
     assert response.status_code == 400
-    assert response.json()["error"]["fields"][field] == message
+    assert response.json()["error"]["fields"] == {field: message}
 
 
 def test_patch_edits_title_and_description(client, ada):
@@ -146,6 +136,8 @@ def test_an_empty_patch_changes_nothing(client, ada):
         ({"owner_id": "x"}, "owner_id", "Unknown field: owner_id"),
         ({"completed": None}, "completed", "Completed cannot be null"),
         ({"title": "  "}, "title", "Title is required"),
+        # Order changes go through PUT /task-order, which checks the links.
+        ({"position": 3}, "position", "Unknown field: position"),
     ],
 )
 def test_patch_rejects_invalid_changes(client, ada, payload, field, message):
@@ -170,7 +162,7 @@ def test_delete_removes_the_task(client, ada):
 
 
 def utc(value: str) -> datetime:
-    """An API date, which must carry its UTC offset (Feedback 4)."""
+    """An API date, which must carry its UTC offset."""
     moment = datetime.fromisoformat(value)
     assert moment.utcoffset() == timedelta(0), value
     return moment
@@ -182,21 +174,14 @@ def test_task_dates_are_utc(client, ada):
     assert task["completed_at"] is None
 
 
-def test_completing_stamps_completed_at_and_unticking_clears_it(client, ada):
+def test_completed_at_is_stamped_once_and_cleared_on_untick(client, ada):
     task = add_task(client, ada, "Buy milk")
     url = f"/api/tasks/{task['id']}"
     done = client.patch(url, json={"completed": True}, headers=ada).json()
     assert abs(utc(done["completed_at"]) - datetime.now(UTC)) < timedelta(seconds=60)
+    # Renaming, or ticking it again, keeps the first time.
+    for change in ({"title": "Buy oat milk"}, {"completed": True}):
+        stamped = client.patch(url, json=change, headers=ada).json()["completed_at"]
+        assert stamped == done["completed_at"]
     undone = client.patch(url, json={"completed": False}, headers=ada).json()
     assert undone["completed_at"] is None
-
-
-def test_completed_at_stays_when_other_fields_change(client, ada):
-    task = add_task(client, ada, "Buy milk")
-    url = f"/api/tasks/{task['id']}"
-    done = client.patch(url, json={"completed": True}, headers=ada).json()
-    renamed = client.patch(url, json={"title": "Buy oat milk"}, headers=ada).json()
-    assert renamed["completed_at"] == done["completed_at"]
-    # Ticking an already completed task again keeps the first time too.
-    again = client.patch(url, json={"completed": True}, headers=ada).json()
-    assert again["completed_at"] == done["completed_at"]

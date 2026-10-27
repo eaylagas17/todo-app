@@ -5,6 +5,7 @@ exactly the window a race needs. With the owner's row locked, the second transac
 at the lock instead, the barrier times out, and it checks again once the first has committed.
 """
 
+import contextlib
 import os
 import threading
 import uuid
@@ -31,10 +32,8 @@ def hold_after(monkeypatch, name):
 
     def checked_then_wait(*args):
         result = real(*args)
-        try:
+        with contextlib.suppress(threading.BrokenBarrierError):
             both.wait()
-        except threading.BrokenBarrierError:
-            pass
         return result
 
     monkeypatch.setattr(crud, name, checked_then_wait)

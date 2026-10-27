@@ -49,19 +49,15 @@ class Task(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow
     )
-    # When it was last ticked off; None while it's open. Sorts Recently completed (spec §6).
+    # When it was last ticked off; None while it's open. Sorts Recently completed.
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    # Deleting a task deletes its subtasks: the ORM does it, so SQLite needs no foreign-key pragma.
     subtasks: Mapped[list[Subtask]] = relationship(
         order_by="Subtask.created_at", cascade="all, delete-orphan"
     )
-    # A task's links in both directions. Deleting the task deletes both kinds, so no link is
-    # ever left pointing at a task that's gone (E45), on SQLite as on Postgres.
+    # What this task waits for. Links pointing at it are removed by the database (ON DELETE
+    # CASCADE), so none is ever left pointing at a task that's gone (E45).
     links: Mapped[list[TaskLink]] = relationship(
         foreign_keys="TaskLink.task_id", cascade="all, delete-orphan"
-    )
-    needed_by_links: Mapped[list[TaskLink]] = relationship(
-        foreign_keys="TaskLink.depends_on_id", cascade="all, delete-orphan"
     )
 
     @property

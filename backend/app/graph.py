@@ -5,7 +5,6 @@ Pure functions over plain ids, with no database: "A waits for B" is written {A: 
 
 import heapq
 from collections.abc import Hashable, Iterable, Mapping
-from typing import Literal
 
 
 def find_path[T: Hashable](
@@ -29,13 +28,12 @@ def find_path[T: Hashable](
 
 
 def repair[T: Hashable](
-    desired: list[T],
-    waits_for: Mapping[T, Iterable[T]],
-    direction: Literal["down", "up"],
+    desired: list[T], waits_for: Mapping[T, Iterable[T]]
 ) -> list[T]:
     """The order closest to `desired` that keeps every link: a stable topological sort.
 
-    Whatever is in the way of the dragged task moves with it, in the direction it was dragged.
+    Fills the list from the top, each time taking the task highest in `desired` whose
+    prerequisites are all placed: a task in the way of one it waits for is pushed below it.
     """
     index = {t: i for i, t in enumerate(desired)}
     before = {t: [p for p in waits_for.get(t, ()) if p in index] for t in desired}
@@ -43,25 +41,20 @@ def repair[T: Hashable](
     for t, prerequisites in before.items():
         for p in prerequisites:
             after[p].append(t)
-    # down: fill from the top; a task waits for its prerequisites; earliest desired index first.
-    # up: fill from the bottom; a task waits for its dependents; latest desired index first.
-    blocking, unblocks, sign = (
-        (before, after, 1) if direction == "down" else (after, before, -1)
-    )
-    remaining = {t: len(blocking[t]) for t in desired}
-    heap = [(sign * index[t], index[t]) for t in desired if remaining[t] == 0]
+    remaining = {t: len(before[t]) for t in desired}
+    heap = [index[t] for t in desired if remaining[t] == 0]
     heapq.heapify(heap)
     placed = []
     while heap:
-        _, i = heapq.heappop(heap)
+        i = heapq.heappop(heap)
         placed.append(desired[i])
-        for n in unblocks[desired[i]]:
+        for n in after[desired[i]]:
             remaining[n] -= 1
             if remaining[n] == 0:
-                heapq.heappush(heap, (sign * index[n], index[n]))
+                heapq.heappush(heap, index[n])
     if len(placed) != len(desired):
         raise ValueError("links form a loop")
-    return placed if direction == "down" else placed[::-1]
+    return placed
 
 
 def breaks_link[T: Hashable](

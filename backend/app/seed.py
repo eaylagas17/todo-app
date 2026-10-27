@@ -8,7 +8,7 @@ from app.models import Category, Subtask, Task, TaskLink, User
 DEMO_EMAIL = "demo@example.com"
 DEMO_PASSWORD = "demo-password"
 
-# The wedding example (spec §12): (title, category, waits for, subtasks). Prerequisites come
+# The wedding example: (title, category, waits for, subtasks). Prerequisites come
 # before the tasks that wait for them, so the order keeps every link.
 EXAMPLE = (
     (
