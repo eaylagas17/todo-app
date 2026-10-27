@@ -115,6 +115,13 @@ const PALETTE = [35, 150, 210, 280, 340, 95];
 const hash = (text: string) =>
   [...text].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 0);
 
+/** Adds to a key's list in place: O(1). Copying the list on every add would be O(k²) for k. */
+function append(lists: Map<string, string[]>, key: string, value: string) {
+  const list = lists.get(key);
+  if (list) list.push(value);
+  else lists.set(key, [value]);
+}
+
 /** Links that point at a task in the list; one that points at a deleted task is ignored. */
 function presentLinks(tasks: readonly Task[]) {
   const present = new Set(tasks.map((t) => t.id));
@@ -134,8 +141,8 @@ export function linkGroups(
   const neighbours = new Map<string, string[]>();
   for (const [id, prerequisites] of presentLinks(tasks))
     for (const p of prerequisites) {
-      neighbours.set(id, [...(neighbours.get(id) ?? []), p]);
-      neighbours.set(p, [...(neighbours.get(p) ?? []), id]);
+      append(neighbours, id, p);
+      append(neighbours, p, id);
     }
   const groups = new Map<string, { group: number; hue: number }>();
   let group = 0;
@@ -169,7 +176,7 @@ export function steps(tasks: readonly Task[]): Map<string, number> {
   for (const [id, prerequisites] of links)
     for (const p of prerequisites) {
       linked.add(id).add(p);
-      dependents.set(p, [...(dependents.get(p) ?? []), id]);
+      append(dependents, p, id);
     }
   const pending = new Map([...linked].map((id) => [id, links.get(id)!.length]));
   const order = [...linked].filter((id) => pending.get(id) === 0);
